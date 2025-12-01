@@ -54,6 +54,22 @@ const globalSymptoms = [
     evidence: "DLB Consortium - fluctuating cognition/attention",
     discriminating: true
   },
+  {
+    id: "mem7",
+    category: "Memory & Learning",
+    text: "Cannot learn new information even with repetition and reminders",
+    types: ["alzheimers"],
+    evidence: "NIA-AA 2018 Framework - impaired ability to acquire and retain new information is core AD criterion",
+    discriminating: true
+  },
+  {
+    id: "mem8",
+    category: "Memory & Learning",
+    text: "Difficulty sustaining attention on complex tasks - easily distracted, loses train of thought",
+    types: ["vascular"],
+    evidence: "NINDS-AIREN criteria; attention/executive dysfunction often more prominent than memory in vascular dementia",
+    discriminating: true
+  },
 
   // EXECUTIVE FUNCTION & PLANNING
   {
@@ -85,8 +101,8 @@ const globalSymptoms = [
     category: "Planning & Problem-Solving",
     text: "Problems with visuospatial tasks (judging distances, reading clocks, assembling objects)",
     types: ["alzheimers", "lewy"],
-    evidence: "NIA-AA (AD); DLB Consortium - visuospatial deficits more prominent in DLB than AD",
-    discriminating: false
+    evidence: "NIA-AA (AD); DLB Consortium - visuospatial deficits MORE PROMINENT and EARLIER in DLB than AD",
+    discriminating: true
   },
 
   // BEHAVIOR & PERSONALITY
@@ -357,6 +373,14 @@ const globalSymptoms = [
     types: ["lewy"],
     evidence: "NIA - hyposmia is LBD risk factor; part of prodromal syndrome",
     discriminating: false
+  },
+  {
+    id: "auto5",
+    category: "Autonomic & Other",
+    text: "Had severe or unusual reaction to antipsychotic medications (extreme sedation, rigidity, worsening)",
+    types: ["lewy"],
+    evidence: "DLB Consortium 2017 - neuroleptic sensitivity is INDICATIVE BIOMARKER; up to 50% of DLB patients have severe reactions",
+    discriminating: true
   },
 
   // ONSET & PROGRESSION
@@ -1402,6 +1426,8 @@ export default function App() {
               </h3>
               <ul style={{ fontSize: '14px', margin: 0, paddingLeft: '20px', lineHeight: '1.6' }}>
                 <li><strong>NIA-AA Research Framework (2018)</strong> - National Institute on Aging and Alzheimer's Association diagnostic criteria</li>
+                <li><strong>Core cognitive domains:</strong> Learning/memory, language, executive function, visuospatial, social cognition</li>
+                <li><strong>Key criterion:</strong> Impaired ability to acquire and retain new information (episodic memory)</li>
                 <li><strong>Alzheimer's Association 10 Warning Signs</strong> - Clinical observation guidelines</li>
                 <li><strong>McKhann et al. (2011)</strong> - Recommendations for diagnosis of Alzheimer's disease</li>
               </ul>
@@ -1413,8 +1439,10 @@ export default function App() {
               </h3>
               <ul style={{ fontSize: '14px', margin: 0, paddingLeft: '20px', lineHeight: '1.6' }}>
                 <li><strong>NINDS-AIREN Criteria</strong> - National Institute of Neurological Disorders and Stroke international criteria</li>
+                <li><strong>Key differentiator:</strong> Attention and executive dysfunction often MORE prominent than memory impairment</li>
                 <li><strong>Vascular Cognitive Impairment (VCI) Statement (2011)</strong> - AHA/ASA Scientific Statement</li>
                 <li><strong>Subcortical vascular dementia features</strong> - Psychomotor slowing, gait disturbance, executive dysfunction</li>
+                <li><strong>Stepwise progression pattern</strong> - Decline in "steps" following vascular events vs. gradual AD decline</li>
               </ul>
             </div>
 
@@ -1425,6 +1453,8 @@ export default function App() {
               <ul style={{ fontSize: '14px', margin: 0, paddingLeft: '20px', lineHeight: '1.6' }}>
                 <li><strong>DLB Consortium 4th Consensus Criteria (2017)</strong> - McKeith et al., Neurology - defines core and supportive features</li>
                 <li><strong>Core features:</strong> Fluctuating cognition, recurrent visual hallucinations, REM sleep behavior disorder, parkinsonism</li>
+                <li><strong>Indicative biomarker:</strong> Severe neuroleptic (antipsychotic) sensitivity - up to 50% have severe reactions</li>
+                <li><strong>Key differentiator from AD:</strong> Visuospatial deficits appear EARLIER and are MORE PROMINENT in DLB</li>
                 <li><strong>NINDS/NIA diagnostic guidelines</strong> - Additional clinical features and biomarkers</li>
               </ul>
             </div>
@@ -1480,6 +1510,17 @@ export default function App() {
             <li><strong>Lawton IADL Scale</strong> - Instrumental Activities of Daily Living (complex tasks)</li>
             <li><strong>Katz ADL Index</strong> - Basic Activities of Daily Living (self-care)</li>
             <li><strong>Clinical Dementia Rating (CDR)</strong> - Staging framework reference</li>
+          </ul>
+
+          <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '10px' }}>Recent Evidence-Based Updates</h3>
+          <p style={{ fontSize: '14px', marginBottom: '10px', lineHeight: '1.6' }}>
+            The following refinements were made based on peer-reviewed literature review:
+          </p>
+          <ul style={{ fontSize: '14px', marginBottom: '15px', paddingLeft: '20px', lineHeight: '1.6' }}>
+            <li><strong>AD - Learning impairment:</strong> Added "Cannot learn new information even with repetition" per NIA-AA 2018 core criteria for episodic memory</li>
+            <li><strong>VaD - Attention dysfunction:</strong> Added "Difficulty sustaining attention on complex tasks" per NINDS-AIREN criteria emphasizing attention/executive deficits over memory in vascular dementia</li>
+            <li><strong>LBD - Antipsychotic sensitivity:</strong> Added neuroleptic sensitivity as discriminating feature per DLB Consortium 2017 indicative biomarkers (up to 50% affected)</li>
+            <li><strong>LBD - Visuospatial:</strong> Upgraded visuospatial problems to discriminating status per DLB Consortium noting they appear EARLIER and are MORE PROMINENT in DLB vs. AD</li>
           </ul>
         </div>
 
@@ -2100,9 +2141,18 @@ export default function App() {
                         <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#2D2A26', margin: 0 }}>
                           {category}
                         </h3>
+                        <span style={{ 
+                          fontFamily: "'DM Sans', sans-serif", 
+                          fontSize: '12px', 
+                          color: '#A8A4A0', 
+                          fontStyle: 'italic',
+                          fontWeight: '400'
+                        }}>
+                          {categorySymptoms.length} {categorySymptoms.length === 1 ? 'item' : 'items'}
+                        </span>
                         {checkedCount > 0 && (
                           <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '12px', color: '#3D7A5A', fontWeight: '600' }}>
-                            {checkedCount} selected
+                            • {checkedCount} selected
                           </span>
                         )}
                       </div>
