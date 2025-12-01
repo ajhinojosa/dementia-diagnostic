@@ -2208,6 +2208,93 @@ export default function App() {
                 );
               })}
             </div>
+
+            {/* Sticky Progress Indicator */}
+            <div style={{
+              position: 'fixed',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              background: 'white',
+              borderTop: '1px solid #E8E5E0',
+              padding: '12px 20px',
+              boxShadow: '0 -4px 12px rgba(0,0,0,0.08)',
+              zIndex: 100
+            }}>
+              <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+                  {/* Progress Stats */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flex: 1 }}>
+                    <div>
+                      <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '11px', color: '#8B8680', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>
+                        Categories Reviewed
+                      </div>
+                      <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '14px', fontWeight: '600', color: '#2D2A26' }}>
+                        {Object.values(expandedCategories).filter(Boolean).length} / {categories.length}
+                      </div>
+                    </div>
+                    <div style={{ height: '30px', width: '1px', background: '#E8E5E0' }} />
+                    <div>
+                      <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '11px', color: '#8B8680', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>
+                        Symptoms Selected
+                      </div>
+                      <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '14px', fontWeight: '600', color: '#3D7A5A' }}>
+                        {Object.values(symptomData).filter(s => s?.checked).length}
+                      </div>
+                    </div>
+                    <div style={{ height: '30px', width: '1px', background: '#E8E5E0' }} />
+                    <div>
+                      <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '11px', color: '#8B8680', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>
+                        With Details
+                      </div>
+                      <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '14px', fontWeight: '600', color: '#7B6B8D' }}>
+                        {Object.values(symptomData).filter(s => s?.checked && s?.onset && s?.frequency && s?.severity).length}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Progress Bar */}
+                  <div style={{ flex: 1, maxWidth: '300px', minWidth: '150px' }}>
+                    <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '11px', color: '#8B8680', marginBottom: '4px', display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Overall Progress</span>
+                      <span>{Math.round((Object.values(expandedCategories).filter(Boolean).length / categories.length) * 100)}%</span>
+                    </div>
+                    <div style={{ height: '6px', background: '#F0EDE8', borderRadius: '3px', overflow: 'hidden' }}>
+                      <div style={{
+                        height: '100%',
+                        width: `${(Object.values(expandedCategories).filter(Boolean).length / categories.length) * 100}%`,
+                        background: 'linear-gradient(90deg, #3D7A5A 0%, #5B8C6F 100%)',
+                        borderRadius: '3px',
+                        transition: 'width 0.3s ease'
+                      }} />
+                    </div>
+                  </div>
+
+                  {/* Key Symptoms Count */}
+                  {Object.values(symptomData).filter(s => s?.checked).length > 0 && (
+                    <div style={{
+                      padding: '8px 16px',
+                      background: '#F8F7F5',
+                      borderRadius: '8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}>
+                      <span style={{ color: '#B87333', fontSize: '14px' }}>★</span>
+                      <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '12px', color: '#5C5550' }}>
+                        <strong style={{ color: '#B87333' }}>
+                          {globalSymptoms.filter(s => s.discriminating && symptomData[s.id]?.checked).length}
+                        </strong>
+                        {' '}key indicators selected
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Spacer to prevent content from being hidden behind sticky bar */}
+            <div style={{ height: '80px' }} />
           </>
         )}
 
