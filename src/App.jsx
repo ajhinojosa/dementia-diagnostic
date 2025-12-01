@@ -238,6 +238,14 @@ const globalSymptoms = [
     evidence: "NINDS-AIREN criteria; major risk factor; stroke increases dementia risk 70-120%",
     discriminating: true
   },
+  {
+    id: "mov7",
+    category: "Movement & Physical",
+    text: "History of radiation therapy to the head or brain (for cancer or other conditions)",
+    types: ["vascular"],
+    evidence: "PMC research - cranial radiation causes white matter damage (leukoencephalopathy) with vascular dementia-like cognitive pattern; dose-dependent cognitive effects",
+    discriminating: true
+  },
 
   // SLEEP
   {
@@ -762,6 +770,10 @@ export default function App() {
     historyHeadInjury: false,
     familyHistoryDementia: false,
     familyHistoryDetails: "",
+    // Cancer treatment history
+    historyCancerTreatment: false,
+    historyCranialRadiation: false,
+    cancerTreatmentDetails: "",
     // Medications
     currentMedications: "",
     recentMedChanges: "",
@@ -837,6 +849,9 @@ export default function App() {
         historyHeadInjury: false,
         familyHistoryDementia: false,
         familyHistoryDetails: "",
+        historyCancerTreatment: false,
+        historyCranialRadiation: false,
+        cancerTreatmentDetails: "",
         currentMedications: "",
         recentMedChanges: "",
         additionalNotes: ""
@@ -1103,6 +1118,8 @@ export default function App() {
               {medicalHistory.historyParkinsons && <li>Parkinson's disease</li>}
               {medicalHistory.historyDepression && <li>Depression</li>}
               {medicalHistory.historyHeadInjury && <li>Significant head injury</li>}
+              {medicalHistory.historyCancerTreatment && <li>Cancer treatment history: {medicalHistory.cancerTreatmentDetails || "details not specified"}</li>}
+              {medicalHistory.historyCranialRadiation && <li><strong>Cranial/brain radiation therapy</strong> (may cause vascular-like white matter changes)</li>}
               {medicalHistory.familyHistoryDementia && <li>Family history of dementia: {medicalHistory.familyHistoryDetails || "details not specified"}</li>}
             </ul>
             {medicalHistory.currentMedications && (
@@ -2621,6 +2638,8 @@ export default function App() {
                   { key: 'historyParkinsons', label: "Parkinson's disease" },
                   { key: 'historyDepression', label: 'Depression' },
                   { key: 'historyHeadInjury', label: 'Significant head injury' },
+                  { key: 'historyCancerTreatment', label: 'Cancer treatment (chemo, radiation, hormone therapy)' },
+                  { key: 'historyCranialRadiation', label: 'Radiation therapy to head/brain' },
                   { key: 'familyHistoryDementia', label: 'Family history of dementia' }
                 ].map(item => (
                   <label key={item.key} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
@@ -2638,6 +2657,36 @@ export default function App() {
                   </label>
                   <input className="form-input" type="text" value={medicalHistory.familyHistoryDetails}
                     onChange={(e) => setMedicalHistory(prev => ({ ...prev, familyHistoryDetails: e.target.value }))} />
+                </div>
+              )}
+              {(medicalHistory.historyCancerTreatment || medicalHistory.historyCranialRadiation) && (
+                <div style={{ marginTop: '12px' }}>
+                  <label style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '12px', color: '#6B6660', display: 'block', marginBottom: '6px' }}>
+                    Cancer Treatment Details (type of cancer, treatments received, dates)
+                  </label>
+                  <input className="form-input" type="text" placeholder="e.g., Breast cancer 2019, chemotherapy + radiation"
+                    value={medicalHistory.cancerTreatmentDetails}
+                    onChange={(e) => setMedicalHistory(prev => ({ ...prev, cancerTreatmentDetails: e.target.value }))} />
+                </div>
+              )}
+              {medicalHistory.historyCranialRadiation && (
+                <div style={{ 
+                  marginTop: '12px', 
+                  padding: '12px 14px', 
+                  background: '#FFF8E1', 
+                  borderRadius: '6px',
+                  borderLeft: '3px solid #F57F17'
+                }}>
+                  <p style={{ 
+                    fontFamily: "'DM Sans', sans-serif", 
+                    fontSize: '12px', 
+                    color: '#5C5550', 
+                    margin: 0,
+                    lineHeight: '1.5'
+                  }}>
+                    <strong style={{ color: '#8B6914' }}>Note:</strong> Cranial radiation can cause white matter changes 
+                    similar to vascular dementia. This history is clinically relevant and will be noted in the report.
+                  </p>
                 </div>
               )}
             </div>
