@@ -60,16 +60,16 @@ const globalSymptoms = [
     id: "exec1",
     category: "Planning & Problem-Solving",
     text: "Difficulty managing finances, paying bills, or following multi-step instructions",
-    types: ["alzheimers", "vascular"],
-    evidence: "NIA-AA criteria (AD); executive dysfunction prominent early in vascular dementia",
+    types: ["alzheimers", "vascular", "mixed"],
+    evidence: "NIA-AA criteria (AD); executive dysfunction prominent early in vascular dementia; common in mixed",
     discriminating: false
   },
   {
     id: "exec2",
     category: "Planning & Problem-Solving",
     text: "Trouble organizing, planning ahead, or sequencing tasks (e.g., following a recipe)",
-    types: ["alzheimers", "vascular", "ftd"],
-    evidence: "Common across types; dysexecutive profile is one of 6 bvFTD diagnostic features",
+    types: ["alzheimers", "vascular", "ftd", "mixed"],
+    evidence: "Common across types; dysexecutive profile is one of 6 bvFTD diagnostic features; prominent in mixed",
     discriminating: false
   },
   {
@@ -126,8 +126,8 @@ const globalSymptoms = [
     id: "beh5",
     category: "Behavior & Personality",
     text: "Shows profound apathy - loss of initiative, motivation, and interest in previous activities",
-    types: ["ftd", "vascular"],
-    evidence: "Core bvFTD feature; apathy early in vascular dementia vs. later in AD",
+    types: ["ftd", "vascular", "mixed"],
+    evidence: "Core bvFTD feature; apathy early in vascular dementia vs. later in AD; common in mixed presentations",
     discriminating: false
   },
   {
@@ -202,8 +202,8 @@ const globalSymptoms = [
     id: "mov4",
     category: "Movement & Physical",
     text: "Frequent falls or balance problems",
-    types: ["lewy", "vascular"],
-    evidence: "DLB Consortium - falls common; gait/balance deficits in subcortical vascular dementia",
+    types: ["lewy", "vascular", "mixed"],
+    evidence: "DLB Consortium - falls common; gait/balance deficits in subcortical vascular dementia; common in mixed with vascular component",
     discriminating: false
   },
   {
@@ -338,8 +338,8 @@ const globalSymptoms = [
     id: "auto2",
     category: "Autonomic & Other",
     text: "New or worsening urinary incontinence (not explained by other conditions)",
-    types: ["vascular"],
-    evidence: "Subcortical vascular dementia clinical features; frontal circuit involvement",
+    types: ["vascular", "mixed"],
+    evidence: "Subcortical vascular dementia clinical features; frontal circuit involvement; common in mixed with vascular",
     discriminating: false
   },
   {
@@ -381,7 +381,7 @@ const globalSymptoms = [
     category: "Onset & Progression",
     text: "Progression seems faster than typical (decline over months rather than years)",
     types: ["lewy", "vascular", "mixed"],
-    evidence: "DLB often more rapid than AD; vascular events cause acute declines",
+    evidence: "DLB often more rapid than AD; vascular events cause acute declines; mixed pathology accelerates decline",
     discriminating: false
   },
   {
@@ -390,6 +390,88 @@ const globalSymptoms = [
     text: "Behavior or personality changes appeared BEFORE memory problems",
     types: ["ftd"],
     evidence: "bvFTD diagnostic criteria - behavioral symptoms precede memory impairment",
+    discriminating: true
+  },
+
+  // MIXED DEMENTIA INDICATORS
+  {
+    id: "mixed1",
+    category: "Mixed Dementia Indicators",
+    text: "Has BOTH gradual memory decline AND sudden worsening episodes (combines both patterns)",
+    types: ["mixed"],
+    evidence: "Alzheimer's Association; Neurology 2007 - mixed pathology shows both AD gradual + vascular stepwise patterns",
+    discriminating: true
+  },
+  {
+    id: "mixed2",
+    category: "Mixed Dementia Indicators",
+    text: "Memory problems AND executive dysfunction (planning, organizing) both appeared prominently and early",
+    types: ["mixed"],
+    evidence: "Neurology 2014 - combined amnestic + dysexecutive profile suggests AD + vascular pathology",
+    discriminating: true
+  },
+  {
+    id: "mixed3",
+    category: "Mixed Dementia Indicators",
+    text: "Has multiple cardiovascular risk factors (high blood pressure, diabetes, high cholesterol, heart disease) AND typical memory symptoms",
+    types: ["mixed", "vascular"],
+    evidence: "Lancet Neurology 2019; Alzheimer's Association - vascular risk factors + AD symptoms suggest mixed etiology",
+    discriminating: true
+  },
+  {
+    id: "mixed4",
+    category: "Mixed Dementia Indicators",
+    text: "Decline is noticeably faster than expected for someone with Alzheimer's alone",
+    types: ["mixed"],
+    evidence: "JAMA Neurology 2015 - autopsy studies show mixed pathology accelerates cognitive decline vs. AD alone",
+    discriminating: true
+  },
+  {
+    id: "mixed5",
+    category: "Mixed Dementia Indicators",
+    text: "Shows features of multiple dementia types simultaneously (e.g., AD-like memory loss + vascular-like attention problems + movement symptoms)",
+    types: ["mixed"],
+    evidence: "Alzheimer's Research UK; Nat Rev Neurol 2016 - overlapping symptom domains suggest multiple pathologies",
+    discriminating: true
+  },
+  {
+    id: "mixed6",
+    category: "Mixed Dementia Indicators",
+    text: "Has history of stroke or TIA AND also shows gradual progressive memory decline typical of Alzheimer's",
+    types: ["mixed"],
+    evidence: "NINDS-AIREN + NIA-AA combined criteria; vascular history + AD progression pattern = mixed dementia",
+    discriminating: true
+  },
+  {
+    id: "mixed7",
+    category: "Mixed Dementia Indicators",
+    text: "Brain imaging (MRI/CT) showed BOTH significant atrophy (shrinkage) AND vascular changes (white matter disease, small strokes)",
+    types: ["mixed"],
+    evidence: "Neurology 2018 - neuroimaging showing combined AD + vascular pathology strongly predicts mixed dementia",
+    discriminating: true
+  },
+  {
+    id: "mixed8",
+    category: "Mixed Dementia Indicators",
+    text: "Memory problems worsened significantly after a stroke, heart surgery, or cardiac event",
+    types: ["mixed", "vascular"],
+    evidence: "JAMA 2012 - post-stroke cognitive decline often reveals underlying AD pathology; common mixed presentation",
+    discriminating: true
+  },
+  {
+    id: "mixed9",
+    category: "Mixed Dementia Indicators",
+    text: "Symptoms span multiple categories that don't fit neatly into one dementia type",
+    types: ["mixed"],
+    evidence: "Alzheimer's Association diagnostic guidelines - atypical or multi-domain presentation suggests mixed pathology",
+    discriminating: false
+  },
+  {
+    id: "mixed10",
+    category: "Mixed Dementia Indicators",
+    text: "Age 80+ with dementia symptoms (mixed pathology is most common at advanced ages)",
+    types: ["mixed"],
+    evidence: "Rush Memory & Aging Project; Lancet 2017 - autopsy studies show 50%+ of dementia in 80+ has mixed pathology",
     discriminating: true
   }
 ];
