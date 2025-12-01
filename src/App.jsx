@@ -1,9 +1,9 @@
-import React, { useState, useMemo } from 'react';
-import jsPDF from 'jspdf';
+import React, { useState, useMemo, useRef } from 'react';
 
-// Research-backed behavioral symptoms with subtype associations
-// Sources: NIA-AA criteria, DLB Consortium (2017), International bvFTD Criteria Consortium,
-// NINDS-AIREN vascular criteria, peer-reviewed meta-analyses
+// ============================================
+// DATA DEFINITIONS
+// ============================================
+
 const globalSymptoms = [
   // MEMORY & COGNITION
   {
@@ -35,7 +35,7 @@ const globalSymptoms = [
     category: "Memory & Learning",
     text: "Memory problems came on suddenly or worsened in noticeable 'steps' rather than gradually",
     types: ["vascular"],
-    evidence: "NINDS-AIREN criteria; step-wise decline is classic vascular pattern (J Neurol Neurosurg Psychiatry)",
+    evidence: "NINDS-AIREN criteria; step-wise decline is classic vascular pattern",
     discriminating: true
   },
   {
@@ -51,7 +51,7 @@ const globalSymptoms = [
     category: "Memory & Learning",
     text: "Stares blankly into space for periods of time or seems completely 'zoned out'",
     types: ["lewy"],
-    evidence: "DLB Consortium - fluctuating cognition/attention; Dementia UK clinical guidance",
+    evidence: "DLB Consortium - fluctuating cognition/attention",
     discriminating: true
   },
 
@@ -61,7 +61,7 @@ const globalSymptoms = [
     category: "Planning & Problem-Solving",
     text: "Difficulty managing finances, paying bills, or following multi-step instructions",
     types: ["alzheimers", "vascular"],
-    evidence: "NIA-AA criteria (AD); executive dysfunction prominent early in vascular dementia (Medscape)",
+    evidence: "NIA-AA criteria (AD); executive dysfunction prominent early in vascular dementia",
     discriminating: false
   },
   {
@@ -117,9 +117,9 @@ const globalSymptoms = [
   {
     id: "beh4",
     category: "Behavior & Personality",
-    text: "Engages in compulsive, ritualistic, or repetitive behaviors (fixed routines, hoarding, repetitive movements)",
+    text: "Engages in compulsive, ritualistic, or repetitive behaviors (fixed routines, hoarding)",
     types: ["ftd"],
-    evidence: "bvFTD criteria - perseverative/stereotyped behaviors; FTD caregiver studies",
+    evidence: "bvFTD criteria - perseverative/stereotyped behaviors",
     discriminating: true
   },
   {
@@ -127,7 +127,7 @@ const globalSymptoms = [
     category: "Behavior & Personality",
     text: "Shows profound apathy - loss of initiative, motivation, and interest in previous activities",
     types: ["ftd", "vascular"],
-    evidence: "Core bvFTD feature; apathy early in vascular dementia vs. later in AD (Medscape)",
+    evidence: "Core bvFTD feature; apathy early in vascular dementia vs. later in AD",
     discriminating: false
   },
   {
@@ -167,9 +167,9 @@ const globalSymptoms = [
   {
     id: "hall3",
     category: "Hallucinations & Perceptions",
-    text: "Misidentifies familiar people (thinks spouse is an imposter) or becomes paranoid/suspicious",
+    text: "Misidentifies familiar people or becomes paranoid/suspicious",
     types: ["alzheimers", "lewy"],
-    evidence: "Capgras syndrome more common in DLB; delusions occur in 20-40% of AD (NCBI)",
+    evidence: "Capgras syndrome more common in DLB; delusions occur in 20-40% of AD",
     discriminating: false
   },
 
@@ -179,7 +179,7 @@ const globalSymptoms = [
     category: "Movement & Physical",
     text: "Shuffling walk, difficulty starting to walk, or freezing mid-step",
     types: ["lewy", "vascular"],
-    evidence: "DLB Consortium - parkinsonism is core feature; gait problems characteristic of vascular dementia",
+    evidence: "DLB Consortium - parkinsonism is core feature; gait problems in vascular dementia",
     discriminating: true
   },
   {
@@ -195,7 +195,7 @@ const globalSymptoms = [
     category: "Movement & Physical",
     text: "Tremor (shaking) at rest, particularly in hands",
     types: ["lewy"],
-    evidence: "DLB Consortium - parkinsonian features; may be less prominent than in Parkinson's disease",
+    evidence: "DLB Consortium - parkinsonian features",
     discriminating: false
   },
   {
@@ -203,7 +203,7 @@ const globalSymptoms = [
     category: "Movement & Physical",
     text: "Frequent falls or balance problems",
     types: ["lewy", "vascular"],
-    evidence: "DLB Consortium - falls common; gait/balance deficits in subcortical vascular dementia (PMC)",
+    evidence: "DLB Consortium - falls common; gait/balance deficits in subcortical vascular dementia",
     discriminating: false
   },
   {
@@ -229,7 +229,7 @@ const globalSymptoms = [
     category: "Sleep & Arousal",
     text: "Acts out dreams during sleep - punching, kicking, yelling, or falling out of bed",
     types: ["lewy"],
-    evidence: "DLB Consortium (2017) - REM sleep behavior disorder is core feature; often precedes cognitive symptoms by years",
+    evidence: "DLB Consortium (2017) - REM sleep behavior disorder is core feature",
     discriminating: true
   },
   {
@@ -245,7 +245,7 @@ const globalSymptoms = [
     category: "Sleep & Arousal",
     text: "Excessive daytime sleepiness - naps frequently or dozes off during activities",
     types: ["lewy"],
-    evidence: "PMC systematic review - EDS occurs in ~80% of DLB patients; more severe than in AD",
+    evidence: "PMC systematic review - EDS occurs in ~80% of DLB patients",
     discriminating: true
   },
   {
@@ -271,13 +271,13 @@ const globalSymptoms = [
     category: "Eating & Oral Behaviors",
     text: "Overeats, eats rapidly, or stuffs food in mouth (food cramming)",
     types: ["ftd"],
-    evidence: "Bathgate et al. - food cramming discriminates FTD from other dementias (PMC)",
+    evidence: "Bathgate et al. - food cramming discriminates FTD from other dementias",
     discriminating: true
   },
   {
     id: "eat3",
     category: "Eating & Oral Behaviors",
-    text: "Fixated on specific foods or developed rigid 'food fads' (will only eat certain things)",
+    text: "Fixated on specific foods or developed rigid 'food fads'",
     types: ["ftd"],
     evidence: "UCSF Memory Center; hyperorality is 1 of 6 core bvFTD diagnostic criteria",
     discriminating: true
@@ -287,7 +287,7 @@ const globalSymptoms = [
     category: "Eating & Oral Behaviors",
     text: "Puts non-food items in mouth or increased smoking/alcohol use",
     types: ["ftd"],
-    evidence: "Cambridge Behavioral Inventory - oral behaviors domain; bvFTD associated",
+    evidence: "Cambridge Behavioral Inventory - oral behaviors domain",
     discriminating: false
   },
 
@@ -313,7 +313,7 @@ const globalSymptoms = [
     category: "Language & Communication",
     text: "Loses understanding of word meanings - asks 'What is a [common word]?'",
     types: ["ftd"],
-    evidence: "Semantic dementia (svPPA) - loss of conceptual knowledge; anterior temporal atrophy",
+    evidence: "Semantic dementia (svPPA) - loss of conceptual knowledge",
     discriminating: true
   },
   {
@@ -339,7 +339,7 @@ const globalSymptoms = [
     category: "Autonomic & Other",
     text: "New or worsening urinary incontinence (not explained by other conditions)",
     types: ["vascular"],
-    evidence: "Subcortical vascular dementia clinical features (Medscape); frontal circuit involvement",
+    evidence: "Subcortical vascular dementia clinical features; frontal circuit involvement",
     discriminating: false
   },
   {
@@ -379,9 +379,9 @@ const globalSymptoms = [
   {
     id: "onset3",
     category: "Onset & Progression",
-    text: "Progression seems faster than typical Alzheimer's (decline over months rather than years)",
+    text: "Progression seems faster than typical (decline over months rather than years)",
     types: ["lewy", "vascular", "mixed"],
-    evidence: "DLB often more rapid than AD; vascular events cause acute declines; mixed accelerates progression",
+    evidence: "DLB often more rapid than AD; vascular events cause acute declines",
     discriminating: false
   },
   {
@@ -389,7 +389,7 @@ const globalSymptoms = [
     category: "Onset & Progression",
     text: "Behavior or personality changes appeared BEFORE memory problems",
     types: ["ftd"],
-    evidence: "bvFTD diagnostic criteria - behavioral symptoms precede memory impairment; distinguishes from AD",
+    evidence: "bvFTD diagnostic criteria - behavioral symptoms precede memory impairment",
     discriminating: true
   }
 ];
@@ -399,65 +399,179 @@ const dementiaTypes = {
     name: "Alzheimer's Disease",
     shortName: "AD",
     color: "#5B8C6F",
-    description: "Most common form (60-80% of cases). Characterized by gradual onset with progressive memory decline, especially for recent events.",
+    description: "Most common form (60-80% of cases). Gradual onset with progressive memory decline.",
     keyFeature: "Recent memory loss is earliest and most prominent symptom; personality often preserved early."
   },
   vascular: {
     name: "Vascular Dementia",
     shortName: "VaD",
     color: "#7B6B8D",
-    description: "Second most common. Results from reduced blood flow to brain, often related to strokes or blood vessel damage.",
-    keyFeature: "Often sudden onset or 'step-wise' decline. Executive function problems often more prominent than memory loss early on."
+    description: "Second most common. Results from reduced blood flow to brain.",
+    keyFeature: "Often sudden onset or 'step-wise' decline. Executive function problems often more prominent than memory."
   },
   lewy: {
     name: "Lewy Body Dementia",
     shortName: "LBD",
     color: "#8B7355",
-    description: "Third most common. Characterized by protein deposits (Lewy bodies) affecting brain chemistry and function.",
-    keyFeature: "Visual hallucinations + fluctuating cognition + movement problems. CRITICAL: Often has dangerous reactions to antipsychotic medications."
+    description: "Third most common. Protein deposits affecting brain chemistry.",
+    keyFeature: "Visual hallucinations + fluctuating cognition + movement problems. CAUTION: Antipsychotic sensitivity."
   },
   ftd: {
     name: "Frontotemporal Dementia",
     shortName: "FTD",
     color: "#B87333",
-    description: "Affects frontal and temporal lobes. Often younger onset (40s-60s) than other dementias.",
-    keyFeature: "Personality/behavior changes or language problems come BEFORE memory loss. Often affects people under 65."
+    description: "Affects frontal/temporal lobes. Often younger onset (40s-60s).",
+    keyFeature: "Personality/behavior changes or language problems come BEFORE memory loss."
   },
   mixed: {
     name: "Mixed Dementia",
     shortName: "Mixed",
     color: "#5F7A8C",
-    description: "Combination of two or more types, most commonly Alzheimer's + Vascular. Very common in older adults.",
-    keyFeature: "Symptoms span multiple categories; often faster progression than pure AD. Suspect if pattern doesn't fit one type."
+    description: "Combination of types, most commonly Alzheimer's + Vascular.",
+    keyFeature: "Symptoms span multiple categories; often faster progression."
   }
 };
 
+// IADL and Basic ADL items
+const iadlItems = [
+  { id: "iadl1", text: "Managing finances (paying bills, banking)", category: "Financial" },
+  { id: "iadl2", text: "Managing medications (remembering doses, refills)", category: "Health" },
+  { id: "iadl3", text: "Driving or arranging transportation", category: "Transportation" },
+  { id: "iadl4", text: "Shopping for groceries or necessities", category: "Shopping" },
+  { id: "iadl5", text: "Preparing meals", category: "Household" },
+  { id: "iadl6", text: "Using telephone or technology", category: "Communication" },
+  { id: "iadl7", text: "Housekeeping and laundry", category: "Household" },
+  { id: "iadl8", text: "Managing appointments and schedule", category: "Organization" }
+];
+
+const badlItems = [
+  { id: "badl1", text: "Bathing/showering independently", category: "Hygiene" },
+  { id: "badl2", text: "Dressing appropriately", category: "Self-care" },
+  { id: "badl3", text: "Using the toilet independently", category: "Continence" },
+  { id: "badl4", text: "Transferring (getting in/out of bed, chairs)", category: "Mobility" },
+  { id: "badl5", text: "Eating without assistance", category: "Nutrition" },
+  { id: "badl6", text: "Walking/mobility", category: "Mobility" }
+];
+
+const onsetOptions = [
+  { value: "", label: "Select when noticed" },
+  { value: "1month", label: "Within last month" },
+  { value: "3months", label: "1-3 months ago" },
+  { value: "6months", label: "3-6 months ago" },
+  { value: "1year", label: "6-12 months ago" },
+  { value: "2years", label: "1-2 years ago" },
+  { value: "3years", label: "2-3 years ago" },
+  { value: "older", label: "3+ years ago" }
+];
+
+const frequencyOptions = [
+  { value: "", label: "How often?" },
+  { value: "rarely", label: "Rarely (few times/month)" },
+  { value: "sometimes", label: "Sometimes (weekly)" },
+  { value: "often", label: "Often (multiple times/week)" },
+  { value: "daily", label: "Daily" },
+  { value: "constant", label: "Constantly" }
+];
+
+const severityOptions = [
+  { value: "", label: "Severity" },
+  { value: "mild", label: "Mild" },
+  { value: "moderate", label: "Moderate" },
+  { value: "severe", label: "Severe" }
+];
+
+const adlStatusOptions = [
+  { value: "", label: "Select status" },
+  { value: "independent", label: "Fully independent" },
+  { value: "supervision", label: "Needs reminding/supervision" },
+  { value: "assistance", label: "Needs some hands-on help" },
+  { value: "dependent", label: "Cannot do without full help" },
+  { value: "na", label: "N/A or not assessed" }
+];
+
 const categories = [...new Set(globalSymptoms.map(s => s.category))];
 
-export default function App() {
-  const [checked, setChecked] = useState({});
-  const [expandedCategories, setExpandedCategories] = useState(
-    categories.reduce((acc, cat) => ({ ...acc, [cat]: true }), {})
-  );
-  const [showEvidenceFor, setShowEvidenceFor] = useState(null);
+// ============================================
+// MAIN COMPONENT
+// ============================================
 
-  const toggleCheck = (id) => {
-    setChecked(prev => ({ ...prev, [id]: !prev[id] }));
+export default function App() {
+  // State for symptoms with details
+  const [symptomData, setSymptomData] = useState({});
+  const [expandedCategories, setExpandedCategories] = useState(
+    categories.reduce((acc, cat) => ({ ...acc, [cat]: false }), { "Memory & Learning": true })
+  );
+  
+  // State for medical history
+  const [medicalHistory, setMedicalHistory] = useState({
+    patientName: "",
+    patientAge: "",
+    caregiverName: "",
+    caregiverRelation: "",
+    firstSymptomsNoticed: "",
+    diagnosisDate: "",
+    currentDiagnosis: "",
+    // Risk factors
+    historyStroke: false,
+    historyTIA: false,
+    historyHeartDisease: false,
+    historyHypertension: false,
+    historyDiabetes: false,
+    historyParkinsons: false,
+    historyDepression: false,
+    historyHeadInjury: false,
+    familyHistoryDementia: false,
+    familyHistoryDetails: "",
+    // Medications
+    currentMedications: "",
+    recentMedChanges: "",
+    // Notes
+    additionalNotes: ""
+  });
+  
+  // State for ADLs
+  const [adlData, setAdlData] = useState({});
+  
+  // State for view mode
+  const [activeTab, setActiveTab] = useState("symptoms"); // symptoms, history, adl, report
+  const [showPrintView, setShowPrintView] = useState(false);
+
+  // Toggle symptom checked
+  const toggleSymptom = (id) => {
+    setSymptomData(prev => {
+      if (prev[id]?.checked) {
+        const { [id]: removed, ...rest } = prev;
+        return rest;
+      }
+      return {
+        ...prev,
+        [id]: { checked: true, onset: "", frequency: "", severity: "" }
+      };
+    });
   };
 
+  // Update symptom detail
+  const updateSymptomDetail = (id, field, value) => {
+    setSymptomData(prev => ({
+      ...prev,
+      [id]: { ...prev[id], [field]: value }
+    }));
+  };
+
+  // Toggle category expansion
   const toggleCategory = (cat) => {
     setExpandedCategories(prev => ({ ...prev, [cat]: !prev[cat] }));
   };
 
-  // Calculate scores for each dementia type
+  // Calculate scores
   const scores = useMemo(() => {
     const result = {};
     Object.keys(dementiaTypes).forEach(type => {
       const typeSymptoms = globalSymptoms.filter(s => s.types.includes(type));
       const discriminatingSymptoms = typeSymptoms.filter(s => s.discriminating);
       
-      const checkedTotal = typeSymptoms.filter(s => checked[s.id]).length;
-      const checkedDiscriminating = discriminatingSymptoms.filter(s => checked[s.id]).length;
+      const checkedTotal = typeSymptoms.filter(s => symptomData[s.id]?.checked).length;
+      const checkedDiscriminating = discriminatingSymptoms.filter(s => symptomData[s.id]?.checked).length;
       
       result[type] = {
         total: checkedTotal,
@@ -470,11 +584,10 @@ export default function App() {
       };
     });
     return result;
-  }, [checked]);
+  }, [symptomData]);
 
-  const hasAnyChecked = Object.values(checked).some(v => v);
+  const hasAnyChecked = Object.values(symptomData).some(v => v?.checked);
 
-  // Sort types by discriminating symptoms matched
   const sortedTypes = useMemo(() => {
     return Object.entries(scores)
       .sort((a, b) => {
@@ -486,223 +599,349 @@ export default function App() {
       .map(([type]) => type);
   }, [scores]);
 
-  // Export to PDF function
-  const exportToPDF = () => {
-    const pdf = new jsPDF();
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    const margin = 20;
-    let yPos = margin;
-    const lineHeight = 7;
-    const sectionSpacing = 10;
+  // Get checked symptoms for report
+  const checkedSymptoms = useMemo(() => {
+    return globalSymptoms.filter(s => symptomData[s.id]?.checked).map(s => ({
+      ...s,
+      ...symptomData[s.id]
+    }));
+  }, [symptomData]);
 
-    // Helper function to add a new page if needed
-    const checkNewPage = (requiredSpace) => {
-      if (yPos + requiredSpace > pageHeight - margin) {
-        pdf.addPage();
-        yPos = margin;
-        return true;
-      }
-      return false;
-    };
-
-    // Helper function to add wrapped text
-    const addWrappedText = (text, maxWidth, fontSize = 10, fontStyle = 'normal') => {
-      pdf.setFontSize(fontSize);
-      pdf.setFont('helvetica', fontStyle);
-      const lines = pdf.splitTextToSize(text, maxWidth);
-      lines.forEach(line => {
-        checkNewPage(lineHeight);
-        pdf.text(line, margin, yPos);
-        yPos += lineHeight;
-      });
-    };
-
-    // Title
-    pdf.setFontSize(18);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('Dementia Subtype Comparison Tool', pageWidth / 2, yPos, { align: 'center' });
-    yPos += lineHeight * 2;
-
-    // Date
-    pdf.setFontSize(10);
-    pdf.setFont('helvetica', 'normal');
-    const dateStr = new Date().toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    });
-    pdf.text(`Generated on: ${dateStr}`, pageWidth / 2, yPos, { align: 'center' });
-    yPos += lineHeight * 2;
-
-    // Disclaimer
-    pdf.setFontSize(9);
-    pdf.setTextColor(160, 48, 48);
-    addWrappedText(
-      'IMPORTANT: For discussion with healthcare providers only. This tool cannot replace professional medical evaluation.',
-      pageWidth - (margin * 2),
-      9
-    );
-    pdf.setTextColor(0, 0, 0);
-    yPos += sectionSpacing;
-
-    // Pattern Analysis Section
-    if (hasAnyChecked) {
-      pdf.setFontSize(14);
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('Pattern Analysis', margin, yPos);
-      yPos += lineHeight * 1.5;
-
-      // Sort types for display
-      const displayTypes = sortedTypes.filter(type => scores[type].total > 0);
-      
-      displayTypes.forEach((type, index) => {
-        checkNewPage(lineHeight * 4);
-        const score = scores[type];
-        const info = dementiaTypes[type];
-
-        // Type name and scores
-        pdf.setFontSize(12);
-        pdf.setFont('helvetica', 'bold');
-        pdf.setTextColor(
-          parseInt(info.color.slice(1, 3), 16),
-          parseInt(info.color.slice(3, 5), 16),
-          parseInt(info.color.slice(5, 7), 16)
-        );
-        pdf.text(`${info.name}`, margin, yPos);
-        pdf.setTextColor(0, 0, 0);
-        
-        yPos += lineHeight;
-        pdf.setFontSize(10);
-        pdf.setFont('helvetica', 'normal');
-        pdf.text(
-          `Discriminating: ${score.discriminating}/${score.maxDiscriminating} • Total: ${score.total}/${score.maxTotal}`,
-          margin + 5,
-          yPos
-        );
-        yPos += lineHeight * 0.5;
-
-        // Progress bar representation
-        const barWidth = pageWidth - (margin * 2) - 10;
-        const barHeight = 4;
-        const fillWidth = (score.discriminatingPercentage / 100) * barWidth;
-        pdf.setFillColor(
-          parseInt(info.color.slice(1, 3), 16),
-          parseInt(info.color.slice(3, 5), 16),
-          parseInt(info.color.slice(5, 7), 16)
-        );
-        pdf.rect(margin + 5, yPos, fillWidth, barHeight, 'F');
-        pdf.setDrawColor(200, 200, 200);
-        pdf.rect(margin + 5, yPos, barWidth, barHeight, 'S');
-        yPos += lineHeight * 1.5;
-      });
-
-      // Top Match
-      if (sortedTypes[0] && scores[sortedTypes[0]].discriminating > 0) {
-        checkNewPage(lineHeight * 4);
-        const topType = sortedTypes[0];
-        const topInfo = dementiaTypes[topType];
-        pdf.setFontSize(11);
-        pdf.setFont('helvetica', 'bold');
-        pdf.text('Strongest Pattern Match:', margin, yPos);
-        yPos += lineHeight;
-        pdf.setFontSize(12);
-        pdf.setTextColor(
-          parseInt(topInfo.color.slice(1, 3), 16),
-          parseInt(topInfo.color.slice(3, 5), 16),
-          parseInt(topInfo.color.slice(5, 7), 16)
-        );
-        pdf.text(topInfo.name, margin + 5, yPos);
-        pdf.setTextColor(0, 0, 0);
-        yPos += lineHeight;
-        pdf.setFontSize(10);
-        pdf.setFont('helvetica', 'italic');
-        addWrappedText(topInfo.keyFeature, pageWidth - (margin * 2) - 5, 10, 'italic');
-      }
-
-      yPos += sectionSpacing;
-    }
-
-    // Selected Symptoms Section
-    pdf.setFontSize(14);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('Selected Symptoms', margin, yPos);
-    yPos += lineHeight * 1.5;
-
-    // Get selected symptoms grouped by category
-    const selectedSymptoms = globalSymptoms.filter(s => checked[s.id]);
-    const symptomsByCategory = {};
+  // Calculate ADL summary
+  const adlSummary = useMemo(() => {
+    const iadlIssues = iadlItems.filter(item => 
+      adlData[item.id] && !["", "independent", "na"].includes(adlData[item.id])
+    ).length;
+    const badlIssues = badlItems.filter(item => 
+      adlData[item.id] && !["", "independent", "na"].includes(adlData[item.id])
+    ).length;
     
-    selectedSymptoms.forEach(symptom => {
-      if (!symptomsByCategory[symptom.category]) {
-        symptomsByCategory[symptom.category] = [];
-      }
-      symptomsByCategory[symptom.category].push(symptom);
-    });
+    let stage = "Unable to determine";
+    if (badlIssues >= 4) stage = "Severe (Late Stage)";
+    else if (badlIssues >= 2 || iadlIssues >= 6) stage = "Moderate (Middle Stage)";
+    else if (iadlIssues >= 2) stage = "Mild (Early Stage)";
+    else if (iadlIssues === 0 && badlIssues === 0 && Object.keys(adlData).length > 0) stage = "Minimal impairment";
+    
+    return { iadlIssues, badlIssues, stage };
+  }, [adlData]);
 
-    // Display symptoms by category
-    Object.keys(symptomsByCategory).sort().forEach(category => {
-      checkNewPage(lineHeight * 3);
-      pdf.setFontSize(12);
-      pdf.setFont('helvetica', 'bold');
-      pdf.text(category, margin, yPos);
-      yPos += lineHeight * 1.2;
-
-      symptomsByCategory[category].forEach(symptom => {
-        checkNewPage(lineHeight * 4);
+  // ============================================
+  // PRINT VIEW COMPONENT
+  // ============================================
+  
+  if (showPrintView) {
+    return (
+      <div style={{
+        fontFamily: "'Georgia', serif",
+        padding: '40px',
+        maxWidth: '800px',
+        margin: '0 auto',
+        background: 'white',
+        color: '#1a1a1a',
+        lineHeight: '1.6'
+      }}>
+        <style>{`
+          @media print {
+            body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            .no-print { display: none !important; }
+            .page-break { page-break-before: always; }
+          }
+          @import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600&family=DM+Sans:wght@400;500;600&display=swap');
+        `}</style>
         
-        // Symptom text
-        pdf.setFontSize(10);
-        pdf.setFont('helvetica', 'normal');
-        const symptomText = symptom.discriminating 
-          ? `[High-value] ${symptom.text}`
-          : symptom.text;
-        addWrappedText(symptomText, pageWidth - (margin * 2), 10);
-        
-        // Type tags (position after wrapped text)
-        const typeTags = symptom.types.map(type => dementiaTypes[type].shortName).join(', ');
-        pdf.setFontSize(9);
-        pdf.setTextColor(100, 100, 100);
-        pdf.text(`Types: ${typeTags}`, margin + 5, yPos);
-        pdf.setTextColor(0, 0, 0);
-        yPos += lineHeight * 0.8;
-      });
+        {/* Print Controls */}
+        <div className="no-print" style={{
+          position: 'fixed',
+          top: '20px',
+          right: '20px',
+          display: 'flex',
+          gap: '10px',
+          zIndex: 1000
+        }}>
+          <button
+            onClick={() => window.print()}
+            style={{
+              padding: '12px 24px',
+              background: '#3D7A5A',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              fontFamily: "'DM Sans', sans-serif"
+            }}
+          >
+            🖨️ Print / Save as PDF
+          </button>
+          <button
+            onClick={() => setShowPrintView(false)}
+            style={{
+              padding: '12px 24px',
+              background: '#6B6660',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              fontFamily: "'DM Sans', sans-serif"
+            }}
+          >
+            ← Back to Tool
+          </button>
+        </div>
 
-      yPos += lineHeight * 0.5;
-    });
+        {/* Report Header */}
+        <div style={{ borderBottom: '2px solid #2D2A26', paddingBottom: '20px', marginBottom: '30px' }}>
+          <h1 style={{ fontSize: '24px', margin: '0 0 8px 0', fontWeight: '600' }}>
+            Dementia Symptom Observation Report
+          </h1>
+          <p style={{ fontSize: '14px', color: '#666', margin: 0 }}>
+            Prepared for discussion with healthcare provider • Generated {new Date().toLocaleDateString()}
+          </p>
+        </div>
 
-    // Footer
-    const totalPages = pdf.internal.pages.length - 1;
-    for (let i = 1; i <= totalPages; i++) {
-      pdf.setPage(i);
-      pdf.setFontSize(8);
-      pdf.setTextColor(139, 134, 128);
-      pdf.text(
-        'Based on: NIA-AA Alzheimer\'s criteria (2024), DLB Consortium 4th consensus (2017), International bvFTD Criteria Consortium, NINDS-AIREN vascular criteria',
-        pageWidth / 2,
-        pageHeight - 10,
-        { align: 'center' }
-      );
-      pdf.text(
-        `Page ${i} of ${totalPages}`,
-        pageWidth - margin,
-        pageHeight - 10,
-        { align: 'right' }
-      );
-      pdf.setTextColor(0, 0, 0);
-    }
+        {/* Patient Information */}
+        <div style={{ marginBottom: '30px' }}>
+          <h2 style={{ fontSize: '18px', borderBottom: '1px solid #ddd', paddingBottom: '8px', marginBottom: '15px' }}>
+            Patient Information
+          </h2>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '14px' }}>
+            <div><strong>Patient Name:</strong> {medicalHistory.patientName || "_______________"}</div>
+            <div><strong>Age:</strong> {medicalHistory.patientAge || "____"}</div>
+            <div><strong>Caregiver:</strong> {medicalHistory.caregiverName || "_______________"}</div>
+            <div><strong>Relationship:</strong> {medicalHistory.caregiverRelation || "_______________"}</div>
+            <div><strong>Symptoms First Noticed:</strong> {medicalHistory.firstSymptomsNoticed || "_______________"}</div>
+            <div><strong>Current Diagnosis (if any):</strong> {medicalHistory.currentDiagnosis || "None/Unknown"}</div>
+          </div>
+        </div>
 
-    // Save PDF
-    const fileName = `dementia-analysis-${new Date().toISOString().split('T')[0]}.pdf`;
-    pdf.save(fileName);
-  };
+        {/* Medical History */}
+        <div style={{ marginBottom: '30px' }}>
+          <h2 style={{ fontSize: '18px', borderBottom: '1px solid #ddd', paddingBottom: '8px', marginBottom: '15px' }}>
+            Relevant Medical History
+          </h2>
+          <div style={{ fontSize: '14px' }}>
+            <p style={{ margin: '0 0 10px 0' }}><strong>Cardiovascular/Stroke Risk Factors:</strong></p>
+            <ul style={{ margin: '0 0 15px 0', paddingLeft: '20px' }}>
+              {medicalHistory.historyStroke && <li>History of stroke</li>}
+              {medicalHistory.historyTIA && <li>History of TIA (mini-stroke)</li>}
+              {medicalHistory.historyHeartDisease && <li>Heart disease</li>}
+              {medicalHistory.historyHypertension && <li>Hypertension</li>}
+              {medicalHistory.historyDiabetes && <li>Diabetes</li>}
+              {!medicalHistory.historyStroke && !medicalHistory.historyTIA && !medicalHistory.historyHeartDisease && 
+               !medicalHistory.historyHypertension && !medicalHistory.historyDiabetes && <li>None reported</li>}
+            </ul>
+            <p style={{ margin: '0 0 10px 0' }}><strong>Other Relevant History:</strong></p>
+            <ul style={{ margin: '0 0 15px 0', paddingLeft: '20px' }}>
+              {medicalHistory.historyParkinsons && <li>Parkinson's disease</li>}
+              {medicalHistory.historyDepression && <li>Depression</li>}
+              {medicalHistory.historyHeadInjury && <li>Significant head injury</li>}
+              {medicalHistory.familyHistoryDementia && <li>Family history of dementia: {medicalHistory.familyHistoryDetails || "details not specified"}</li>}
+            </ul>
+            {medicalHistory.currentMedications && (
+              <p style={{ margin: '0 0 10px 0' }}><strong>Current Medications:</strong> {medicalHistory.currentMedications}</p>
+            )}
+            {medicalHistory.recentMedChanges && (
+              <p style={{ margin: '0 0 10px 0' }}><strong>Recent Medication Changes:</strong> {medicalHistory.recentMedChanges}</p>
+            )}
+          </div>
+        </div>
 
+        {/* Pattern Analysis */}
+        <div style={{ marginBottom: '30px' }}>
+          <h2 style={{ fontSize: '18px', borderBottom: '1px solid #ddd', paddingBottom: '8px', marginBottom: '15px' }}>
+            Symptom Pattern Analysis
+          </h2>
+          {hasAnyChecked ? (
+            <div>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', marginBottom: '15px' }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid #333' }}>
+                    <th style={{ textAlign: 'left', padding: '8px 4px' }}>Dementia Type</th>
+                    <th style={{ textAlign: 'center', padding: '8px 4px' }}>Discriminating Symptoms</th>
+                    <th style={{ textAlign: 'center', padding: '8px 4px' }}>Total Symptoms</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedTypes.filter(type => scores[type].total > 0).map(type => (
+                    <tr key={type} style={{ borderBottom: '1px solid #ddd' }}>
+                      <td style={{ padding: '8px 4px', fontWeight: scores[type].discriminating > 0 ? '600' : '400' }}>
+                        {dementiaTypes[type].name}
+                      </td>
+                      <td style={{ textAlign: 'center', padding: '8px 4px' }}>
+                        {scores[type].discriminating} / {scores[type].maxDiscriminating}
+                      </td>
+                      <td style={{ textAlign: 'center', padding: '8px 4px' }}>
+                        {scores[type].total} / {scores[type].maxTotal}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {sortedTypes[0] && scores[sortedTypes[0]].discriminating > 0 && (
+                <div style={{ background: '#f5f5f5', padding: '12px', borderRadius: '4px', fontSize: '14px' }}>
+                  <strong>Strongest pattern match: {dementiaTypes[sortedTypes[0]].name}</strong>
+                  <p style={{ margin: '8px 0 0 0', fontStyle: 'italic' }}>{dementiaTypes[sortedTypes[0]].keyFeature}</p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <p style={{ fontSize: '14px', color: '#666' }}>No symptoms recorded yet.</p>
+          )}
+        </div>
+
+        {/* Observed Symptoms Detail */}
+        <div className="page-break" style={{ marginBottom: '30px' }}>
+          <h2 style={{ fontSize: '18px', borderBottom: '1px solid #ddd', paddingBottom: '8px', marginBottom: '15px' }}>
+            Detailed Symptom Observations
+          </h2>
+          {checkedSymptoms.length > 0 ? (
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid #333', background: '#f9f9f9' }}>
+                  <th style={{ textAlign: 'left', padding: '8px 4px', width: '40%' }}>Symptom</th>
+                  <th style={{ textAlign: 'center', padding: '8px 4px' }}>Onset</th>
+                  <th style={{ textAlign: 'center', padding: '8px 4px' }}>Frequency</th>
+                  <th style={{ textAlign: 'center', padding: '8px 4px' }}>Severity</th>
+                  <th style={{ textAlign: 'center', padding: '8px 4px' }}>Associated Types</th>
+                </tr>
+              </thead>
+              <tbody>
+                {categories.map(cat => {
+                  const catSymptoms = checkedSymptoms.filter(s => s.category === cat);
+                  if (catSymptoms.length === 0) return null;
+                  return (
+                    <React.Fragment key={cat}>
+                      <tr>
+                        <td colSpan={5} style={{ padding: '10px 4px 4px', fontWeight: '600', background: '#f0f0f0' }}>
+                          {cat}
+                        </td>
+                      </tr>
+                      {catSymptoms.map(symptom => (
+                        <tr key={symptom.id} style={{ borderBottom: '1px solid #eee' }}>
+                          <td style={{ padding: '6px 4px' }}>
+                            {symptom.text}
+                            {symptom.discriminating && <span style={{ color: '#B87333' }}> ★</span>}
+                          </td>
+                          <td style={{ textAlign: 'center', padding: '6px 4px' }}>
+                            {onsetOptions.find(o => o.value === symptom.onset)?.label || "—"}
+                          </td>
+                          <td style={{ textAlign: 'center', padding: '6px 4px' }}>
+                            {frequencyOptions.find(o => o.value === symptom.frequency)?.label || "—"}
+                          </td>
+                          <td style={{ textAlign: 'center', padding: '6px 4px' }}>
+                            {severityOptions.find(o => o.value === symptom.severity)?.label || "—"}
+                          </td>
+                          <td style={{ textAlign: 'center', padding: '6px 4px' }}>
+                            {symptom.types.map(t => dementiaTypes[t].shortName).join(", ")}
+                          </td>
+                        </tr>
+                      ))}
+                    </React.Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          ) : (
+            <p style={{ fontSize: '14px', color: '#666' }}>No symptoms recorded.</p>
+          )}
+          <p style={{ fontSize: '11px', color: '#888', marginTop: '10px' }}>★ = High-value discriminating symptom</p>
+        </div>
+
+        {/* Functional Assessment */}
+        <div style={{ marginBottom: '30px' }}>
+          <h2 style={{ fontSize: '18px', borderBottom: '1px solid #ddd', paddingBottom: '8px', marginBottom: '15px' }}>
+            Functional Independence Assessment
+          </h2>
+          <p style={{ fontSize: '14px', marginBottom: '15px' }}>
+            <strong>Estimated Stage:</strong> {adlSummary.stage}
+          </p>
+          
+          <h3 style={{ fontSize: '15px', marginBottom: '10px' }}>Instrumental Activities of Daily Living (IADLs)</h3>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', marginBottom: '20px' }}>
+            <tbody>
+              {iadlItems.map(item => (
+                <tr key={item.id} style={{ borderBottom: '1px solid #eee' }}>
+                  <td style={{ padding: '6px 4px' }}>{item.text}</td>
+                  <td style={{ padding: '6px 4px', textAlign: 'right', width: '200px' }}>
+                    {adlStatusOptions.find(o => o.value === adlData[item.id])?.label || "Not assessed"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          
+          <h3 style={{ fontSize: '15px', marginBottom: '10px' }}>Basic Activities of Daily Living (BADLs)</h3>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+            <tbody>
+              {badlItems.map(item => (
+                <tr key={item.id} style={{ borderBottom: '1px solid #eee' }}>
+                  <td style={{ padding: '6px 4px' }}>{item.text}</td>
+                  <td style={{ padding: '6px 4px', textAlign: 'right', width: '200px' }}>
+                    {adlStatusOptions.find(o => o.value === adlData[item.id])?.label || "Not assessed"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Questions for Doctor */}
+        <div style={{ marginBottom: '30px' }}>
+          <h2 style={{ fontSize: '18px', borderBottom: '1px solid #ddd', paddingBottom: '8px', marginBottom: '15px' }}>
+            Suggested Questions for Healthcare Provider
+          </h2>
+          <ul style={{ fontSize: '14px', paddingLeft: '20px' }}>
+            <li style={{ marginBottom: '8px' }}>Based on these symptoms, what type(s) of dementia should we be considering?</li>
+            <li style={{ marginBottom: '8px' }}>What additional testing would help clarify the diagnosis? (cognitive testing, brain imaging, blood work)</li>
+            <li style={{ marginBottom: '8px' }}>Have reversible causes been ruled out? (B12 deficiency, thyroid, medication side effects, depression, UTI)</li>
+            {scores.lewy?.discriminating >= 2 && (
+              <li style={{ marginBottom: '8px', fontWeight: '600' }}>
+                Given potential LBD indicators: Are there medications to avoid, particularly antipsychotics?
+              </li>
+            )}
+            <li style={{ marginBottom: '8px' }}>What is the likely progression, and what should we prepare for?</li>
+            <li style={{ marginBottom: '8px' }}>Are there treatment options that could help with current symptoms?</li>
+            <li style={{ marginBottom: '8px' }}>Should we consult with a neurologist or dementia specialist?</li>
+          </ul>
+        </div>
+
+        {/* Additional Notes */}
+        {medicalHistory.additionalNotes && (
+          <div style={{ marginBottom: '30px' }}>
+            <h2 style={{ fontSize: '18px', borderBottom: '1px solid #ddd', paddingBottom: '8px', marginBottom: '15px' }}>
+              Additional Observations / Notes
+            </h2>
+            <p style={{ fontSize: '14px', whiteSpace: 'pre-wrap' }}>{medicalHistory.additionalNotes}</p>
+          </div>
+        )}
+
+        {/* Footer */}
+        <div style={{ borderTop: '1px solid #ddd', paddingTop: '15px', fontSize: '11px', color: '#888' }}>
+          <p style={{ margin: '0 0 5px 0' }}>
+            <strong>Disclaimer:</strong> This report is based on caregiver observations and is intended to facilitate 
+            discussion with healthcare providers. It is not a diagnostic tool. Dementia diagnosis requires comprehensive 
+            medical evaluation including cognitive testing, imaging, and clinical assessment.
+          </p>
+          <p style={{ margin: 0 }}>
+            Symptom associations based on: NIA-AA Alzheimer's criteria (2024), DLB Consortium 4th consensus (2017), 
+            International bvFTD Criteria Consortium, NINDS-AIREN vascular dementia criteria.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ============================================
+  // MAIN INTERACTIVE VIEW
+  // ============================================
+  
   return (
     <div style={{
       minHeight: '100vh',
       background: 'linear-gradient(180deg, #FAF7F2 0%, #F0EDE5 100%)',
       fontFamily: "'Crimson Pro', Georgia, serif",
-      padding: '24px 16px',
+      paddingBottom: '40px'
     }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;500;600;700&family=DM+Sans:wght@400;500;600&display=swap');
@@ -715,23 +954,44 @@ export default function App() {
           box-shadow: 0 2px 8px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.03);
         }
         
+        .tab-btn {
+          padding: 12px 20px;
+          border: none;
+          background: transparent;
+          font-family: 'DM Sans', sans-serif;
+          font-size: 14px;
+          font-weight: 500;
+          color: #6B6660;
+          cursor: pointer;
+          border-bottom: 2px solid transparent;
+          transition: all 0.2s ease;
+        }
+        
+        .tab-btn:hover {
+          color: #2D2A26;
+        }
+        
+        .tab-btn.active {
+          color: #3D7A5A;
+          border-bottom-color: #3D7A5A;
+        }
+        
         .checkbox-row {
           display: flex;
           align-items: flex-start;
           gap: 12px;
-          padding: 12px 14px;
-          border-radius: 8px;
+          padding: 14px 16px;
+          border-bottom: 1px solid #F5F3F0;
           cursor: pointer;
           transition: background 0.15s ease;
-          border-bottom: 1px solid #F5F3F0;
-        }
-        
-        .checkbox-row:last-child {
-          border-bottom: none;
         }
         
         .checkbox-row:hover {
           background: rgba(0,0,0,0.02);
+        }
+        
+        .checkbox-row:last-child {
+          border-bottom: none;
         }
         
         .custom-check {
@@ -755,7 +1015,6 @@ export default function App() {
         
         .type-tag {
           display: inline-flex;
-          align-items: center;
           padding: 2px 8px;
           border-radius: 4px;
           font-size: 10px;
@@ -763,7 +1022,51 @@ export default function App() {
           font-family: 'DM Sans', sans-serif;
           letter-spacing: 0.3px;
           text-transform: uppercase;
-          white-space: nowrap;
+        }
+        
+        .detail-select {
+          padding: 6px 10px;
+          border: 1px solid #ddd;
+          border-radius: 6px;
+          font-family: 'DM Sans', sans-serif;
+          font-size: 12px;
+          background: white;
+          cursor: pointer;
+          min-width: 140px;
+        }
+        
+        .detail-select:focus {
+          outline: none;
+          border-color: #3D7A5A;
+        }
+        
+        .form-input {
+          padding: 10px 14px;
+          border: 1px solid #ddd;
+          border-radius: 8px;
+          font-family: 'DM Sans', sans-serif;
+          font-size: 14px;
+          width: 100%;
+        }
+        
+        .form-input:focus {
+          outline: none;
+          border-color: #3D7A5A;
+        }
+        
+        .form-checkbox {
+          width: 18px;
+          height: 18px;
+          cursor: pointer;
+        }
+        
+        .category-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 14px 16px;
+          cursor: pointer;
+          border-bottom: 1px solid #F0EDE8;
         }
         
         .score-bar {
@@ -779,471 +1082,598 @@ export default function App() {
           transition: width 0.3s ease;
         }
         
-        .category-header {
+        .adl-row {
           display: flex;
-          align-items: center;
           justify-content: space-between;
-          padding: 14px 16px;
-          cursor: pointer;
-          border-bottom: 1px solid #F0EDE8;
-          transition: background 0.15s ease;
+          align-items: center;
+          padding: 12px 16px;
+          border-bottom: 1px solid #F5F3F0;
         }
         
-        .category-header:hover {
-          background: rgba(0,0,0,0.02);
-        }
-        
-        .evidence-tooltip {
-          position: absolute;
-          bottom: 100%;
-          left: 0;
-          right: 0;
-          background: #2D2A26;
-          color: white;
-          padding: 10px 12px;
-          border-radius: 8px;
-          font-size: 12px;
-          line-height: 1.5;
-          margin-bottom: 8px;
-          z-index: 100;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        }
-        
-        .evidence-tooltip::after {
-          content: '';
-          position: absolute;
-          top: 100%;
-          left: 20px;
-          border: 6px solid transparent;
-          border-top-color: #2D2A26;
+        .adl-row:last-child {
+          border-bottom: none;
         }
       `}</style>
 
-      <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-        {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+      {/* Header */}
+      <div style={{ 
+        background: 'white', 
+        borderBottom: '1px solid #E8E5E0',
+        padding: '20px 24px',
+        marginBottom: '20px'
+      }}>
+        <div style={{ maxWidth: '900px', margin: '0 auto' }}>
           <h1 style={{
-            fontSize: '26px',
+            fontSize: '24px',
             fontWeight: '700',
             color: '#2D2A26',
-            marginBottom: '8px',
-            letterSpacing: '-0.5px'
+            margin: '0 0 8px 0'
           }}>
-            Dementia Subtype Comparison Tool
+            Dementia Symptom Assessment Tool
           </h1>
           <p style={{
             fontFamily: "'DM Sans', sans-serif",
             fontSize: '14px',
             color: '#6B6660',
-            maxWidth: '600px',
-            margin: '0 auto',
-            lineHeight: '1.5'
+            margin: 0
           }}>
-            Check observable behaviors to see which patterns emerge. Symptoms are tagged by which dementia type(s) they indicate. 
-            <span style={{ color: '#B87333', fontWeight: '500' }}> High-value discriminating symptoms</span> carry more diagnostic weight.
+            Document symptoms, medical history, and functional status to prepare for healthcare discussions.
           </p>
         </div>
+      </div>
 
-        {/* Critical Warning */}
-        <div className="card" style={{
-          padding: '16px 18px',
-          marginBottom: '20px',
-          borderLeft: '4px solid #C75050',
-          background: '#FDF8F8'
-        }}>
-          <p style={{
-            fontFamily: "'DM Sans', sans-serif",
-            fontSize: '13px',
-            color: '#5C5550',
-            margin: 0,
-            lineHeight: '1.6'
-          }}>
-            <strong style={{ color: '#A03030' }}>For discussion with healthcare providers only.</strong> Dementia diagnosis requires comprehensive medical evaluation including cognitive testing, brain imaging, blood work, and clinical assessment. This tool is based on peer-reviewed diagnostic criteria but cannot replace professional evaluation. Many symptoms overlap between types, and mixed dementia is common.
-          </p>
+      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '0 16px' }}>
+        
+        {/* Tab Navigation */}
+        <div className="card" style={{ marginBottom: '20px', overflow: 'hidden' }}>
+          <div style={{ display: 'flex', borderBottom: '1px solid #F0EDE8' }}>
+            <button 
+              className={`tab-btn ${activeTab === 'symptoms' ? 'active' : ''}`}
+              onClick={() => setActiveTab('symptoms')}
+            >
+              Symptoms
+            </button>
+            <button 
+              className={`tab-btn ${activeTab === 'history' ? 'active' : ''}`}
+              onClick={() => setActiveTab('history')}
+            >
+              Medical History
+            </button>
+            <button 
+              className={`tab-btn ${activeTab === 'adl' ? 'active' : ''}`}
+              onClick={() => setActiveTab('adl')}
+            >
+              Functional Status
+            </button>
+            <button 
+              className={`tab-btn ${activeTab === 'report' ? 'active' : ''}`}
+              onClick={() => setActiveTab('report')}
+            >
+              Generate Report
+            </button>
+          </div>
         </div>
 
-        {/* Score Summary */}
-        {hasAnyChecked && (
-          <div className="card" style={{ padding: '20px', marginBottom: '20px' }}>
-            <div style={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center',
-              marginBottom: '16px'
+        {/* ============================================ */}
+        {/* SYMPTOMS TAB */}
+        {/* ============================================ */}
+        {activeTab === 'symptoms' && (
+          <>
+            {/* Warning */}
+            <div className="card" style={{
+              padding: '14px 18px',
+              marginBottom: '16px',
+              borderLeft: '4px solid #C75050',
+              background: '#FDF8F8'
             }}>
-              <h3 style={{
+              <p style={{
                 fontFamily: "'DM Sans', sans-serif",
-                fontSize: '12px',
-                color: '#6B6660',
+                fontSize: '13px',
+                color: '#5C5550',
                 margin: 0,
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                fontWeight: '600'
+                lineHeight: '1.5'
               }}>
-                Pattern Analysis
-              </h3>
-              <button
-                onClick={exportToPDF}
-                style={{
+                <strong style={{ color: '#A03030' }}>For healthcare discussions only.</strong> Check symptoms you've observed, 
+                then add timing and severity details. This helps identify patterns but cannot replace professional diagnosis.
+              </p>
+            </div>
+
+            {/* Score Summary */}
+            {hasAnyChecked && (
+              <div className="card" style={{ padding: '18px', marginBottom: '16px' }}>
+                <h3 style={{
                   fontFamily: "'DM Sans', sans-serif",
                   fontSize: '12px',
-                  fontWeight: '600',
-                  color: 'white',
-                  background: '#3D7A5A',
-                  border: 'none',
-                  borderRadius: '6px',
-                  padding: '8px 16px',
-                  cursor: 'pointer',
-                  transition: 'background 0.2s ease',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px'
-                }}
-                onMouseEnter={(e) => e.target.style.background = '#2D5A43'}
-                onMouseLeave={(e) => e.target.style.background = '#3D7A5A'}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="7 10 12 15 17 10" />
-                  <line x1="12" y1="15" x2="12" y2="3" />
-                </svg>
-                Export to PDF
-              </button>
-            </div>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              {sortedTypes.map(type => {
-                const score = scores[type];
-                const info = dementiaTypes[type];
-                if (score.total === 0) return null;
-                
-                return (
-                  <div key={type}>
-                    <div style={{ 
-                      display: 'flex', 
-                      justifyContent: 'space-between', 
-                      alignItems: 'center',
-                      marginBottom: '6px'
-                    }}>
-                      <span style={{
-                        fontFamily: "'DM Sans', sans-serif",
-                        fontSize: '14px',
-                        fontWeight: '600',
-                        color: info.color
-                      }}>
-                        {info.name}
-                      </span>
-                      <span style={{
-                        fontFamily: "'DM Sans', sans-serif",
-                        fontSize: '12px',
-                        color: '#8B8680'
-                      }}>
-                        <span style={{ color: '#B87333', fontWeight: '600' }}>
-                          {score.discriminating}/{score.maxDiscriminating}
-                        </span>
-                        {' discriminating • '}
-                        {score.total}/{score.maxTotal} total
-                      </span>
-                    </div>
-                    <div className="score-bar">
-                      <div 
-                        className="score-fill"
-                        style={{ 
-                          width: `${score.discriminatingPercentage}%`,
-                          background: info.color
-                        }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            
-            {/* Top Match Details */}
-            {sortedTypes[0] && scores[sortedTypes[0]].discriminating > 0 && (
-              <div style={{
-                marginTop: '16px',
-                padding: '12px 14px',
-                background: `${dementiaTypes[sortedTypes[0]].color}08`,
-                borderRadius: '8px',
-                borderLeft: `3px solid ${dementiaTypes[sortedTypes[0]].color}`
-              }}>
-                <p style={{
-                  fontFamily: "'DM Sans', sans-serif",
-                  fontSize: '11px',
-                  color: dementiaTypes[sortedTypes[0]].color,
-                  margin: '0 0 4px 0',
+                  color: '#6B6660',
+                  margin: '0 0 14px 0',
                   textTransform: 'uppercase',
                   letterSpacing: '0.5px',
                   fontWeight: '600'
                 }}>
-                  Strongest Pattern Match: {dementiaTypes[sortedTypes[0]].name}
-                </p>
+                  Pattern Analysis
+                </h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {sortedTypes.filter(type => scores[type].total > 0).map(type => {
+                    const score = scores[type];
+                    const info = dementiaTypes[type];
+                    return (
+                      <div key={type}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                          <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '13px', fontWeight: '600', color: info.color }}>
+                            {info.name}
+                          </span>
+                          <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '11px', color: '#8B8680' }}>
+                            <span style={{ color: '#B87333', fontWeight: '600' }}>{score.discriminating}/{score.maxDiscriminating}</span> key • {score.total}/{score.maxTotal} total
+                          </span>
+                        </div>
+                        <div className="score-bar">
+                          <div className="score-fill" style={{ width: `${score.discriminatingPercentage}%`, background: info.color }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* LBD Warning */}
+            {scores.lewy?.discriminating >= 2 && (
+              <div className="card" style={{
+                padding: '14px 18px',
+                marginBottom: '16px',
+                borderLeft: '4px solid #D4A017',
+                background: '#FFFEF5'
+              }}>
                 <p style={{
+                  fontFamily: "'DM Sans', sans-serif",
                   fontSize: '13px',
-                  color: '#4A4744',
-                  margin: 0,
-                  lineHeight: '1.5'
+                  color: '#5C5550',
+                  margin: 0
                 }}>
-                  {dementiaTypes[sortedTypes[0]].keyFeature}
+                  <strong style={{ color: '#8B6914' }}>⚠️ Lewy Body Dementia Indicators Detected:</strong> People with LBD can have 
+                  severe reactions to antipsychotic medications. Discuss this with the healthcare team before any such medications are prescribed.
                 </p>
               </div>
             )}
+
+            {/* Symptom Categories */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {categories.map(category => {
+                const categorySymptoms = globalSymptoms.filter(s => s.category === category);
+                const isExpanded = expandedCategories[category];
+                const checkedCount = categorySymptoms.filter(s => symptomData[s.id]?.checked).length;
+                
+                return (
+                  <div key={category} className="card" style={{ overflow: 'hidden' }}>
+                    <div className="category-header" onClick={() => toggleCategory(category)}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#2D2A26', margin: 0 }}>
+                          {category}
+                        </h3>
+                        {checkedCount > 0 && (
+                          <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '12px', color: '#3D7A5A', fontWeight: '600' }}>
+                            {checkedCount} selected
+                          </span>
+                        )}
+                      </div>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8B8680" strokeWidth="2"
+                        style={{ transition: 'transform 0.2s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                        <path d="M6 9l6 6 6-6" />
+                      </svg>
+                    </div>
+                    
+                    {isExpanded && (
+                      <div>
+                        {categorySymptoms.map(symptom => {
+                          const isChecked = symptomData[symptom.id]?.checked;
+                          return (
+                            <div key={symptom.id} className="checkbox-row" style={{ flexDirection: 'column', cursor: 'default' }}>
+                              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', width: '100%', cursor: 'pointer' }}
+                                   onClick={() => toggleSymptom(symptom.id)}>
+                                <div className={`custom-check ${isChecked ? 'checked' : ''}`}>
+                                  {isChecked && (
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
+                                      <path d="M5 12l5 5L20 7" />
+                                    </svg>
+                                  )}
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                  <div style={{
+                                    fontFamily: "'DM Sans', sans-serif",
+                                    fontSize: '14px',
+                                    color: isChecked ? '#2D2A26' : '#4A4744',
+                                    lineHeight: '1.4',
+                                    marginBottom: '6px'
+                                  }}>
+                                    {symptom.text}
+                                    {symptom.discriminating && (
+                                      <span style={{ marginLeft: '8px', color: '#B87333', fontSize: '10px', fontWeight: '600' }}>
+                                        HIGH-VALUE
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                    {symptom.types.map(type => (
+                                      <span key={type} className="type-tag" style={{
+                                        background: `${dementiaTypes[type].color}15`,
+                                        color: dementiaTypes[type].color
+                                      }}>
+                                        {dementiaTypes[type].shortName}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              {/* Detail Selects - shown when checked */}
+                              {isChecked && (
+                                <div style={{
+                                  display: 'flex',
+                                  flexWrap: 'wrap',
+                                  gap: '10px',
+                                  marginTop: '12px',
+                                  marginLeft: '34px',
+                                  padding: '12px',
+                                  background: '#F8F7F5',
+                                  borderRadius: '8px'
+                                }}>
+                                  <select
+                                    className="detail-select"
+                                    value={symptomData[symptom.id]?.onset || ""}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onChange={(e) => updateSymptomDetail(symptom.id, 'onset', e.target.value)}
+                                  >
+                                    {onsetOptions.map(opt => (
+                                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                    ))}
+                                  </select>
+                                  <select
+                                    className="detail-select"
+                                    value={symptomData[symptom.id]?.frequency || ""}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onChange={(e) => updateSymptomDetail(symptom.id, 'frequency', e.target.value)}
+                                  >
+                                    {frequencyOptions.map(opt => (
+                                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                    ))}
+                                  </select>
+                                  <select
+                                    className="detail-select"
+                                    value={symptomData[symptom.id]?.severity || ""}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onChange={(e) => updateSymptomDetail(symptom.id, 'severity', e.target.value)}
+                                  >
+                                    {severityOptions.map(opt => (
+                                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        {/* ============================================ */}
+        {/* MEDICAL HISTORY TAB */}
+        {/* ============================================ */}
+        {activeTab === 'history' && (
+          <div className="card" style={{ padding: '24px' }}>
+            <h2 style={{ fontSize: '18px', fontWeight: '600', margin: '0 0 20px 0', color: '#2D2A26' }}>
+              Medical History & Background
+            </h2>
+            
+            {/* Patient Info */}
+            <div style={{ marginBottom: '28px' }}>
+              <h3 style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '14px', fontWeight: '600', color: '#6B6660', margin: '0 0 14px 0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Patient Information
+              </h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
+                <div>
+                  <label style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '12px', color: '#6B6660', display: 'block', marginBottom: '6px' }}>Patient Name</label>
+                  <input className="form-input" type="text" value={medicalHistory.patientName}
+                    onChange={(e) => setMedicalHistory(prev => ({ ...prev, patientName: e.target.value }))} />
+                </div>
+                <div>
+                  <label style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '12px', color: '#6B6660', display: 'block', marginBottom: '6px' }}>Age</label>
+                  <input className="form-input" type="text" value={medicalHistory.patientAge}
+                    onChange={(e) => setMedicalHistory(prev => ({ ...prev, patientAge: e.target.value }))} />
+                </div>
+                <div>
+                  <label style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '12px', color: '#6B6660', display: 'block', marginBottom: '6px' }}>Caregiver Name</label>
+                  <input className="form-input" type="text" value={medicalHistory.caregiverName}
+                    onChange={(e) => setMedicalHistory(prev => ({ ...prev, caregiverName: e.target.value }))} />
+                </div>
+                <div>
+                  <label style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '12px', color: '#6B6660', display: 'block', marginBottom: '6px' }}>Relationship to Patient</label>
+                  <input className="form-input" type="text" value={medicalHistory.caregiverRelation}
+                    onChange={(e) => setMedicalHistory(prev => ({ ...prev, caregiverRelation: e.target.value }))} />
+                </div>
+                <div>
+                  <label style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '12px', color: '#6B6660', display: 'block', marginBottom: '6px' }}>When Symptoms First Noticed</label>
+                  <input className="form-input" type="text" placeholder="e.g., Spring 2023" value={medicalHistory.firstSymptomsNoticed}
+                    onChange={(e) => setMedicalHistory(prev => ({ ...prev, firstSymptomsNoticed: e.target.value }))} />
+                </div>
+                <div>
+                  <label style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '12px', color: '#6B6660', display: 'block', marginBottom: '6px' }}>Current Diagnosis (if any)</label>
+                  <input className="form-input" type="text" placeholder="e.g., MCI, Alzheimer's, or None" value={medicalHistory.currentDiagnosis}
+                    onChange={(e) => setMedicalHistory(prev => ({ ...prev, currentDiagnosis: e.target.value }))} />
+                </div>
+              </div>
+            </div>
+
+            {/* Risk Factors */}
+            <div style={{ marginBottom: '28px' }}>
+              <h3 style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '14px', fontWeight: '600', color: '#6B6660', margin: '0 0 14px 0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Medical History & Risk Factors
+              </h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+                {[
+                  { key: 'historyStroke', label: 'History of stroke' },
+                  { key: 'historyTIA', label: 'History of TIA (mini-stroke)' },
+                  { key: 'historyHeartDisease', label: 'Heart disease' },
+                  { key: 'historyHypertension', label: 'High blood pressure' },
+                  { key: 'historyDiabetes', label: 'Diabetes' },
+                  { key: 'historyParkinsons', label: "Parkinson's disease" },
+                  { key: 'historyDepression', label: 'Depression' },
+                  { key: 'historyHeadInjury', label: 'Significant head injury' },
+                  { key: 'familyHistoryDementia', label: 'Family history of dementia' }
+                ].map(item => (
+                  <label key={item.key} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                    <input type="checkbox" className="form-checkbox"
+                      checked={medicalHistory[item.key]}
+                      onChange={(e) => setMedicalHistory(prev => ({ ...prev, [item.key]: e.target.checked }))} />
+                    <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '14px', color: '#4A4744' }}>{item.label}</span>
+                  </label>
+                ))}
+              </div>
+              {medicalHistory.familyHistoryDementia && (
+                <div style={{ marginTop: '12px' }}>
+                  <label style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '12px', color: '#6B6660', display: 'block', marginBottom: '6px' }}>
+                    Family History Details (who, what type if known)
+                  </label>
+                  <input className="form-input" type="text" value={medicalHistory.familyHistoryDetails}
+                    onChange={(e) => setMedicalHistory(prev => ({ ...prev, familyHistoryDetails: e.target.value }))} />
+                </div>
+              )}
+            </div>
+
+            {/* Medications */}
+            <div style={{ marginBottom: '28px' }}>
+              <h3 style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '14px', fontWeight: '600', color: '#6B6660', margin: '0 0 14px 0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Medications
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div>
+                  <label style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '12px', color: '#6B6660', display: 'block', marginBottom: '6px' }}>
+                    Current Medications
+                  </label>
+                  <textarea className="form-input" rows={3} placeholder="List current medications..."
+                    value={medicalHistory.currentMedications}
+                    onChange={(e) => setMedicalHistory(prev => ({ ...prev, currentMedications: e.target.value }))}
+                    style={{ resize: 'vertical' }} />
+                </div>
+                <div>
+                  <label style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '12px', color: '#6B6660', display: 'block', marginBottom: '6px' }}>
+                    Recent Medication Changes
+                  </label>
+                  <textarea className="form-input" rows={2} placeholder="Any medications started, stopped, or changed recently..."
+                    value={medicalHistory.recentMedChanges}
+                    onChange={(e) => setMedicalHistory(prev => ({ ...prev, recentMedChanges: e.target.value }))}
+                    style={{ resize: 'vertical' }} />
+                </div>
+              </div>
+            </div>
+
+            {/* Additional Notes */}
+            <div>
+              <h3 style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '14px', fontWeight: '600', color: '#6B6660', margin: '0 0 14px 0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Additional Notes
+              </h3>
+              <textarea className="form-input" rows={4} placeholder="Any other observations, concerns, or information the doctor should know..."
+                value={medicalHistory.additionalNotes}
+                onChange={(e) => setMedicalHistory(prev => ({ ...prev, additionalNotes: e.target.value }))}
+                style={{ resize: 'vertical' }} />
+            </div>
           </div>
         )}
 
-        {/* Lewy Body Warning */}
-        {scores.lewy?.discriminating >= 2 && (
-          <div className="card" style={{
-            padding: '16px 18px',
-            marginBottom: '20px',
-            borderLeft: '4px solid #D4A017',
-            background: '#FFFEF5'
-          }}>
+        {/* ============================================ */}
+        {/* FUNCTIONAL STATUS TAB */}
+        {/* ============================================ */}
+        {activeTab === 'adl' && (
+          <>
+            <div className="card" style={{
+              padding: '14px 18px',
+              marginBottom: '16px',
+              borderLeft: '4px solid #3D7A5A',
+              background: '#F8FAF9'
+            }}>
+              <p style={{
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: '13px',
+                color: '#5C5550',
+                margin: 0
+              }}>
+                This section assesses independence in daily activities. It helps determine disease stage and care needs.
+                <strong> IADLs</strong> (complex tasks) typically decline before <strong>BADLs</strong> (basic self-care).
+              </p>
+            </div>
+
+            {/* Stage Estimate */}
+            {Object.keys(adlData).length > 0 && (
+              <div className="card" style={{ padding: '16px 18px', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '13px', color: '#6B6660' }}>
+                    Estimated Functional Stage:
+                  </span>
+                  <span style={{
+                    fontFamily: "'DM Sans', sans-serif",
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    color: adlSummary.stage.includes('Severe') ? '#A03030' :
+                           adlSummary.stage.includes('Moderate') ? '#B87333' :
+                           adlSummary.stage.includes('Mild') ? '#7B6B8D' : '#3D7A5A'
+                  }}>
+                    {adlSummary.stage}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* IADLs */}
+            <div className="card" style={{ marginBottom: '16px', overflow: 'hidden' }}>
+              <div style={{ padding: '16px 18px', borderBottom: '1px solid #F0EDE8' }}>
+                <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#2D2A26', margin: 0 }}>
+                  Instrumental Activities of Daily Living (IADLs)
+                </h3>
+                <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '12px', color: '#8B8680', margin: '4px 0 0 0' }}>
+                  Complex tasks requiring cognitive ability
+                </p>
+              </div>
+              {iadlItems.map(item => (
+                <div key={item.id} className="adl-row">
+                  <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '14px', color: '#4A4744' }}>
+                    {item.text}
+                  </span>
+                  <select
+                    className="detail-select"
+                    value={adlData[item.id] || ""}
+                    onChange={(e) => setAdlData(prev => ({ ...prev, [item.id]: e.target.value }))}
+                    style={{ minWidth: '180px' }}
+                  >
+                    {adlStatusOptions.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+            </div>
+
+            {/* BADLs */}
+            <div className="card" style={{ overflow: 'hidden' }}>
+              <div style={{ padding: '16px 18px', borderBottom: '1px solid #F0EDE8' }}>
+                <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#2D2A26', margin: 0 }}>
+                  Basic Activities of Daily Living (BADLs)
+                </h3>
+                <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '12px', color: '#8B8680', margin: '4px 0 0 0' }}>
+                  Fundamental self-care abilities
+                </p>
+              </div>
+              {badlItems.map(item => (
+                <div key={item.id} className="adl-row">
+                  <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '14px', color: '#4A4744' }}>
+                    {item.text}
+                  </span>
+                  <select
+                    className="detail-select"
+                    value={adlData[item.id] || ""}
+                    onChange={(e) => setAdlData(prev => ({ ...prev, [item.id]: e.target.value }))}
+                    style={{ minWidth: '180px' }}
+                  >
+                    {adlStatusOptions.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* ============================================ */}
+        {/* GENERATE REPORT TAB */}
+        {/* ============================================ */}
+        {activeTab === 'report' && (
+          <div className="card" style={{ padding: '32px', textAlign: 'center' }}>
+            <div style={{ marginBottom: '24px' }}>
+              <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#3D7A5A" strokeWidth="1.5" style={{ margin: '0 auto 16px' }}>
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14,2 14,8 20,8" />
+                <line x1="16" y1="13" x2="8" y2="13" />
+                <line x1="16" y1="17" x2="8" y2="17" />
+                <polyline points="10,9 9,9 8,9" />
+              </svg>
+              <h2 style={{ fontSize: '22px', fontWeight: '600', color: '#2D2A26', margin: '0 0 8px 0' }}>
+                Generate Doctor Report
+              </h2>
+              <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '14px', color: '#6B6660', margin: 0, maxWidth: '500px', marginLeft: 'auto', marginRight: 'auto' }}>
+                Create a printable summary of all observations, symptoms, medical history, and functional status 
+                to bring to your healthcare appointment.
+              </p>
+            </div>
+
+            {/* Summary Stats */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: '16px',
+              marginBottom: '28px',
+              maxWidth: '500px',
+              margin: '0 auto 28px'
+            }}>
+              <div style={{ padding: '16px', background: '#F8F7F5', borderRadius: '8px' }}>
+                <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '24px', fontWeight: '700', color: '#3D7A5A' }}>
+                  {checkedSymptoms.length}
+                </div>
+                <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '12px', color: '#6B6660' }}>
+                  Symptoms Logged
+                </div>
+              </div>
+              <div style={{ padding: '16px', background: '#F8F7F5', borderRadius: '8px' }}>
+                <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '24px', fontWeight: '700', color: '#7B6B8D' }}>
+                  {Object.values(medicalHistory).filter(v => v && v !== "").length}
+                </div>
+                <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '12px', color: '#6B6660' }}>
+                  History Items
+                </div>
+              </div>
+              <div style={{ padding: '16px', background: '#F8F7F5', borderRadius: '8px' }}>
+                <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '24px', fontWeight: '700', color: '#B87333' }}>
+                  {Object.keys(adlData).filter(k => adlData[k] && adlData[k] !== "").length}
+                </div>
+                <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '12px', color: '#6B6660' }}>
+                  ADLs Assessed
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowPrintView(true)}
+              style={{
+                padding: '16px 48px',
+                background: '#3D7A5A',
+                color: 'white',
+                border: 'none',
+                borderRadius: '10px',
+                fontSize: '16px',
+                fontWeight: '600',
+                fontFamily: "'DM Sans', sans-serif",
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(61, 122, 90, 0.3)'
+              }}
+            >
+              📄 Generate Printable Report
+            </button>
+
             <p style={{
               fontFamily: "'DM Sans', sans-serif",
-              fontSize: '13px',
-              color: '#5C5550',
-              margin: 0,
-              lineHeight: '1.6'
+              fontSize: '12px',
+              color: '#8B8680',
+              marginTop: '16px'
             }}>
-              <strong style={{ color: '#8B6914' }}>⚠️ Important Safety Note for Possible Lewy Body Dementia:</strong> People with LBD can have severe, sometimes life-threatening reactions to common antipsychotic medications. Flag this concern with healthcare providers <em>before</em> any antipsychotics are prescribed.
+              Use your browser's Print function (Ctrl/Cmd + P) to save as PDF
             </p>
           </div>
         )}
-
-        {/* Symptom Checklist by Category */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {categories.map(category => {
-            const categorySymptoms = globalSymptoms.filter(s => s.category === category);
-            const isExpanded = expandedCategories[category];
-            const checkedCount = categorySymptoms.filter(s => checked[s.id]).length;
-            
-            return (
-              <div key={category} className="card" style={{ overflow: 'hidden' }}>
-                <div 
-                  className="category-header"
-                  onClick={() => toggleCategory(category)}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <h3 style={{
-                      fontSize: '16px',
-                      fontWeight: '600',
-                      color: '#2D2A26',
-                      margin: 0
-                    }}>
-                      {category}
-                    </h3>
-                    {checkedCount > 0 && (
-                      <span style={{
-                        fontFamily: "'DM Sans', sans-serif",
-                        fontSize: '12px',
-                        color: '#3D7A5A',
-                        fontWeight: '600'
-                      }}>
-                        {checkedCount} selected
-                      </span>
-                    )}
-                  </div>
-                  <svg 
-                    width="20" 
-                    height="20" 
-                    viewBox="0 0 24 24" 
-                    fill="none" 
-                    stroke="#8B8680" 
-                    strokeWidth="2"
-                    style={{
-                      transition: 'transform 0.2s ease',
-                      transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)'
-                    }}
-                  >
-                    <path d="M6 9l6 6 6-6" />
-                  </svg>
-                </div>
-                
-                {isExpanded && (
-                  <div style={{ padding: '4px 0' }}>
-                    {categorySymptoms.map(symptom => (
-                      <div
-                        key={symptom.id}
-                        className="checkbox-row"
-                        onClick={() => toggleCheck(symptom.id)}
-                        style={{ position: 'relative' }}
-                      >
-                        <div className={`custom-check ${checked[symptom.id] ? 'checked' : ''}`}>
-                          {checked[symptom.id] && (
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
-                              <path d="M5 12l5 5L20 7" />
-                            </svg>
-                          )}
-                        </div>
-                        
-                        <div style={{ flex: 1 }}>
-                          <div style={{
-                            fontFamily: "'DM Sans', sans-serif",
-                            fontSize: '14px',
-                            color: checked[symptom.id] ? '#2D2A26' : '#4A4744',
-                            lineHeight: '1.45',
-                            marginBottom: '6px'
-                          }}>
-                            {symptom.text}
-                            {symptom.discriminating && (
-                              <span style={{
-                                marginLeft: '8px',
-                                color: '#B87333',
-                                fontSize: '10px',
-                                fontWeight: '600',
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.3px'
-                              }}>
-                                High-value
-                              </span>
-                            )}
-                          </div>
-                          
-                          <div style={{ 
-                            display: 'flex', 
-                            flexWrap: 'wrap', 
-                            gap: '6px',
-                            alignItems: 'center'
-                          }}>
-                            {symptom.types.map(type => (
-                              <span
-                                key={type}
-                                className="type-tag"
-                                style={{
-                                  background: `${dementiaTypes[type].color}15`,
-                                  color: dementiaTypes[type].color
-                                }}
-                              >
-                                {dementiaTypes[type].shortName}
-                              </span>
-                            ))}
-                            
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setShowEvidenceFor(showEvidenceFor === symptom.id ? null : symptom.id);
-                              }}
-                              style={{
-                                background: 'none',
-                                border: 'none',
-                                padding: '2px 6px',
-                                cursor: 'pointer',
-                                fontFamily: "'DM Sans', sans-serif",
-                                fontSize: '10px',
-                                color: '#8B8680',
-                                textDecoration: 'underline',
-                                textUnderlineOffset: '2px'
-                              }}
-                            >
-                              {showEvidenceFor === symptom.id ? 'Hide' : 'Show'} evidence
-                            </button>
-                          </div>
-                          
-                          {showEvidenceFor === symptom.id && (
-                            <div style={{
-                              marginTop: '10px',
-                              padding: '10px 12px',
-                              background: '#F8F6F3',
-                              borderRadius: '6px',
-                              fontFamily: "'DM Sans', sans-serif",
-                              fontSize: '12px',
-                              color: '#5C5550',
-                              lineHeight: '1.5'
-                            }}>
-                              <strong style={{ color: '#4A4744' }}>Research basis:</strong> {symptom.evidence}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Type Reference Cards */}
-        <div style={{ marginTop: '24px' }}>
-          <h3 style={{
-            fontFamily: "'DM Sans', sans-serif",
-            fontSize: '12px',
-            color: '#6B6660',
-            margin: '0 0 12px 16px',
-            textTransform: 'uppercase',
-            letterSpacing: '0.5px',
-            fontWeight: '600'
-          }}>
-            Quick Reference: Dementia Types
-          </h3>
-          
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-            gap: '12px'
-          }}>
-            {Object.entries(dementiaTypes).map(([key, type]) => (
-              <div 
-                key={key}
-                className="card"
-                style={{
-                  padding: '14px 16px',
-                  borderTop: `3px solid ${type.color}`
-                }}
-              >
-                <h4 style={{
-                  fontSize: '15px',
-                  fontWeight: '600',
-                  color: type.color,
-                  margin: '0 0 6px 0'
-                }}>
-                  {type.name}
-                </h4>
-                <p style={{
-                  fontFamily: "'DM Sans', sans-serif",
-                  fontSize: '12px',
-                  color: '#6B6660',
-                  margin: '0 0 8px 0',
-                  lineHeight: '1.5'
-                }}>
-                  {type.description}
-                </p>
-                <p style={{
-                  fontFamily: "'DM Sans', sans-serif",
-                  fontSize: '12px',
-                  color: '#4A4744',
-                  margin: 0,
-                  lineHeight: '1.5',
-                  fontStyle: 'italic'
-                }}>
-                  <strong>Key:</strong> {type.keyFeature}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div style={{
-          textAlign: 'center',
-          padding: '28px 20px 16px',
-          fontFamily: "'DM Sans', sans-serif",
-          fontSize: '12px',
-          color: '#8B8680',
-          lineHeight: '1.6'
-        }}>
-          <p style={{ margin: '0 0 6px 0' }}>
-            Based on: NIA-AA Alzheimer's criteria (2024), DLB Consortium 4th consensus (2017), 
-            International bvFTD Criteria Consortium, NINDS-AIREN vascular criteria
-          </p>
-          <p style={{ margin: 0 }}>
-            A neurologist or geriatrician can provide comprehensive evaluation, imaging, and accurate diagnosis.
-          </p>
-        </div>
       </div>
     </div>
   );
 }
-
