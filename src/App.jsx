@@ -1977,6 +1977,177 @@ export default function App() {
               </div>
             )}
 
+            {/* Spider Chart */}
+            {hasAnyChecked && (
+              <div className="card" style={{ padding: '18px', marginBottom: '16px' }}>
+                <h3 style={{
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontSize: '12px',
+                  color: '#6B6660',
+                  margin: '0 0 14px 0',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  fontWeight: '600'
+                }}>
+                  Subtype Profile Chart
+                </h3>
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                  <svg width="320" height="280" viewBox="0 0 320 280">
+                    {/* Background and grid */}
+                    {(() => {
+                      const cx = 160, cy = 130, maxRadius = 100;
+                      const types = Object.keys(dementiaTypes);
+                      const angleStep = (2 * Math.PI) / types.length;
+                      const levels = [0.25, 0.5, 0.75, 1];
+                      
+                      // Calculate points for each type
+                      const getPoint = (index, value) => {
+                        const angle = (index * angleStep) - Math.PI / 2;
+                        const radius = value * maxRadius;
+                        return {
+                          x: cx + radius * Math.cos(angle),
+                          y: cy + radius * Math.sin(angle)
+                        };
+                      };
+                      
+                      // Get score percentage for each type (using discriminating percentage)
+                      const getScoreValue = (type) => {
+                        const s = scores[type];
+                        if (!s || s.maxDiscriminating === 0) return 0;
+                        return s.discriminating / s.maxDiscriminating;
+                      };
+                      
+                      return (
+                        <g>
+                          {/* Grid circles */}
+                          {levels.map((level, i) => (
+                            <circle
+                              key={`grid-${i}`}
+                              cx={cx}
+                              cy={cy}
+                              r={maxRadius * level}
+                              fill="none"
+                              stroke="#E8E5E0"
+                              strokeWidth="1"
+                              strokeDasharray={i < levels.length - 1 ? "4,4" : "none"}
+                            />
+                          ))}
+                          
+                          {/* Axis lines */}
+                          {types.map((type, i) => {
+                            const point = getPoint(i, 1);
+                            return (
+                              <line
+                                key={`axis-${type}`}
+                                x1={cx}
+                                y1={cy}
+                                x2={point.x}
+                                y2={point.y}
+                                stroke="#E8E5E0"
+                                strokeWidth="1"
+                              />
+                            );
+                          })}
+                          
+                          {/* Data polygon */}
+                          <polygon
+                            points={types.map((type, i) => {
+                              const value = Math.max(getScoreValue(type), 0.05);
+                              const point = getPoint(i, value);
+                              return `${point.x},${point.y}`;
+                            }).join(' ')}
+                            fill="rgba(61, 122, 90, 0.15)"
+                            stroke="#3D7A5A"
+                            strokeWidth="2"
+                          />
+                          
+                          {/* Data points */}
+                          {types.map((type, i) => {
+                            const value = Math.max(getScoreValue(type), 0.05);
+                            const point = getPoint(i, value);
+                            const hasScore = scores[type]?.discriminating > 0;
+                            return (
+                              <circle
+                                key={`point-${type}`}
+                                cx={point.x}
+                                cy={point.y}
+                                r={hasScore ? 6 : 4}
+                                fill={hasScore ? dementiaTypes[type].color : '#C8C4BC'}
+                                stroke="white"
+                                strokeWidth="2"
+                              />
+                            );
+                          })}
+                          
+                          {/* Labels */}
+                          {types.map((type, i) => {
+                            const labelRadius = maxRadius + 25;
+                            const angle = (i * angleStep) - Math.PI / 2;
+                            const x = cx + labelRadius * Math.cos(angle);
+                            const y = cy + labelRadius * Math.sin(angle);
+                            const info = dementiaTypes[type];
+                            const hasScore = scores[type]?.discriminating > 0;
+                            
+                            // Adjust text anchor based on position
+                            let textAnchor = 'middle';
+                            if (Math.cos(angle) < -0.1) textAnchor = 'end';
+                            else if (Math.cos(angle) > 0.1) textAnchor = 'start';
+                            
+                            return (
+                              <g key={`label-${type}`}>
+                                <text
+                                  x={x}
+                                  y={y}
+                                  textAnchor={textAnchor}
+                                  style={{
+                                    fontFamily: "'DM Sans', sans-serif",
+                                    fontSize: '11px',
+                                    fontWeight: hasScore ? '600' : '400',
+                                    fill: hasScore ? info.color : '#8B8680'
+                                  }}
+                                >
+                                  {info.shortName}
+                                </text>
+                                {hasScore && (
+                                  <text
+                                    x={x}
+                                    y={y + 12}
+                                    textAnchor={textAnchor}
+                                    style={{
+                                      fontFamily: "'DM Sans', sans-serif",
+                                      fontSize: '9px',
+                                      fill: '#8B8680'
+                                    }}
+                                  >
+                                    {scores[type].discriminating}/{scores[type].maxDiscriminating}
+                                  </text>
+                                )}
+                              </g>
+                            );
+                          })}
+                          
+                          {/* Center percentage labels */}
+                          <text x={cx + 8} y={cy - maxRadius * 0.25 + 3} style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '8px', fill: '#A8A4A0' }}>25%</text>
+                          <text x={cx + 8} y={cy - maxRadius * 0.5 + 3} style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '8px', fill: '#A8A4A0' }}>50%</text>
+                          <text x={cx + 8} y={cy - maxRadius * 0.75 + 3} style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '8px', fill: '#A8A4A0' }}>75%</text>
+                          <text x={cx + 8} y={cy - maxRadius + 3} style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '8px', fill: '#A8A4A0' }}>100%</text>
+                        </g>
+                      );
+                    })()}
+                  </svg>
+                </div>
+                <p style={{
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontSize: '11px',
+                  color: '#8B8680',
+                  textAlign: 'center',
+                  margin: '8px 0 0 0'
+                }}>
+                  Chart shows percentage of key (discriminating) indicators matched for each subtype
+                </p>
+              </div>
+            )}
+
             {/* LBD Warning */}
             {scores.lewy?.discriminating >= 2 && (
               <div className="card" style={{
