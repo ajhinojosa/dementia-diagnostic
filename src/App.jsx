@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 
 // ============================================
 // DATA DEFINITIONS
@@ -669,6 +669,79 @@ export default function App() {
   // State for view mode
   const [activeTab, setActiveTab] = useState("symptoms"); // symptoms, history, adl, stage, report
   const [showPrintView, setShowPrintView] = useState(false);
+  const [saveStatus, setSaveStatus] = useState(""); // For save confirmation message
+
+  // Load saved data on mount
+  useEffect(() => {
+    try {
+      const savedData = localStorage.getItem('dementiaAssessmentData');
+      if (savedData) {
+        const parsed = JSON.parse(savedData);
+        if (parsed.symptomData) setSymptomData(parsed.symptomData);
+        if (parsed.medicalHistory) setMedicalHistory(parsed.medicalHistory);
+        if (parsed.adlData) setAdlData(parsed.adlData);
+        if (parsed.expandedCategories) setExpandedCategories(parsed.expandedCategories);
+      }
+    } catch (error) {
+      console.error('Error loading saved data:', error);
+    }
+  }, []);
+
+  // Save data function
+  const saveData = () => {
+    try {
+      const dataToSave = {
+        symptomData,
+        medicalHistory,
+        adlData,
+        expandedCategories,
+        savedAt: new Date().toISOString()
+      };
+      localStorage.setItem('dementiaAssessmentData', JSON.stringify(dataToSave));
+      setSaveStatus('Saved successfully!');
+      setTimeout(() => setSaveStatus(''), 3000);
+    } catch (error) {
+      console.error('Error saving data:', error);
+      setSaveStatus('Error saving data');
+      setTimeout(() => setSaveStatus(''), 3000);
+    }
+  };
+
+  // Clear saved data function
+  const clearData = () => {
+    if (window.confirm('Are you sure you want to clear all saved data? This cannot be undone.')) {
+      localStorage.removeItem('dementiaAssessmentData');
+      setSymptomData({});
+      setMedicalHistory({
+        patientName: "",
+        patientAge: "",
+        caregiverName: "",
+        caregiverRelation: "",
+        firstSymptomsNoticed: "",
+        diagnosisDate: "",
+        currentDiagnosis: "",
+        historyStroke: false,
+        historyTIA: false,
+        historyHeartDisease: false,
+        historyHypertension: false,
+        historyDiabetes: false,
+        historyParkinsons: false,
+        historyDepression: false,
+        historyHeadInjury: false,
+        familyHistoryDementia: false,
+        familyHistoryDetails: "",
+        currentMedications: "",
+        recentMedChanges: "",
+        additionalNotes: ""
+      });
+      setAdlData({});
+      setExpandedCategories(
+        categories.reduce((acc, cat) => ({ ...acc, [cat]: false }), { "Memory & Learning": true })
+      );
+      setSaveStatus('Data cleared');
+      setTimeout(() => setSaveStatus(''), 3000);
+    }
+  };
 
   // Toggle symptom checked
   const toggleSymptom = (id) => {
@@ -1322,23 +1395,83 @@ export default function App() {
         padding: '20px 24px',
         marginBottom: '20px'
       }}>
-        <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-          <h1 style={{
-            fontSize: '24px',
-            fontWeight: '700',
-            color: '#2D2A26',
-            margin: '0 0 8px 0'
-          }}>
-            Dementia Symptom Assessment Tool
-          </h1>
-          <p style={{
-            fontFamily: "'DM Sans', sans-serif",
-            fontSize: '14px',
-            color: '#6B6660',
-            margin: 0
-          }}>
-            Document symptoms, medical history, and functional status to prepare for healthcare discussions.
-          </p>
+        <div style={{ maxWidth: '900px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+          <div style={{ flex: 1 }}>
+            <h1 style={{
+              fontSize: '24px',
+              fontWeight: '700',
+              color: '#2D2A26',
+              margin: '0 0 8px 0'
+            }}>
+              Dementia Symptom Assessment Tool
+            </h1>
+            <p style={{
+              fontFamily: "'DM Sans', sans-serif",
+              fontSize: '14px',
+              color: '#6B6660',
+              margin: 0
+            }}>
+              Document symptoms, medical history, and functional status to prepare for healthcare discussions.
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+            {saveStatus && (
+              <span style={{
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: '12px',
+                color: saveStatus.includes('Error') ? '#C62828' : '#2E7D32',
+                fontWeight: '500'
+              }}>
+                {saveStatus}
+              </span>
+            )}
+            <button
+              onClick={saveData}
+              style={{
+                padding: '10px 20px',
+                background: '#3D7A5A',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '600',
+                fontFamily: "'DM Sans', sans-serif",
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                transition: 'background 0.2s ease'
+              }}
+              onMouseEnter={(e) => e.target.style.background = '#2D5A43'}
+              onMouseLeave={(e) => e.target.style.background = '#3D7A5A'}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                <polyline points="17 21 17 13 7 13 7 21" />
+                <polyline points="7 3 7 8 15 8" />
+              </svg>
+              Save
+            </button>
+            <button
+              onClick={clearData}
+              style={{
+                padding: '10px 20px',
+                background: '#6B6660',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '600',
+                fontFamily: "'DM Sans', sans-serif",
+                cursor: 'pointer',
+                transition: 'background 0.2s ease'
+              }}
+              onMouseEnter={(e) => e.target.style.background = '#5A5550'}
+              onMouseLeave={(e) => e.target.style.background = '#6B6660'}
+            >
+              Clear
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1963,6 +2096,316 @@ export default function App() {
                 </div>
               ))}
             </div>
+          </>
+        )}
+
+        {/* ============================================ */}
+        {/* STAGE ESTIMATION TAB */}
+        {/* ============================================ */}
+        {activeTab === 'stage' && (
+          <>
+            {/* Insufficient Data Warning */}
+            {stageEstimation.totalAssessed < 4 && (
+              <div className="card" style={{
+                padding: '24px',
+                marginBottom: '16px',
+                textAlign: 'center'
+              }}>
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#B87333" strokeWidth="1.5" style={{ margin: '0 auto 12px', display: 'block' }}>
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+                <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#2D2A26', margin: '0 0 8px 0' }}>
+                  More Information Needed
+                </h3>
+                <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '14px', color: '#6B6660', margin: 0, maxWidth: '400px', marginLeft: 'auto', marginRight: 'auto' }}>
+                  Please complete the <strong>Functional Status</strong> tab (at least 4 items) to enable stage estimation. 
+                  Adding symptom severity ratings also improves accuracy.
+                </p>
+              </div>
+            )}
+
+            {/* Stage Estimation Results */}
+            {stageEstimation.totalAssessed >= 4 && (
+              <>
+                {/* Current Stage Card */}
+                <div className="card" style={{
+                  padding: '24px',
+                  marginBottom: '16px',
+                  borderTop: `4px solid ${stageEstimation.stage === 'severe' ? '#A03030' : 
+                    stageEstimation.stage === 'moderate' ? '#B87333' : 
+                    stageEstimation.stage === 'mild' ? '#7B6B8D' : '#3D7A5A'}`
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
+                    <div>
+                      <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '12px', color: '#6B6660', margin: '0 0 4px 0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        Estimated Stage
+                      </p>
+                      <h2 style={{ fontSize: '28px', fontWeight: '700', color: '#2D2A26', margin: 0 }}>
+                        {stageEstimation.stageLabel}
+                      </h2>
+                    </div>
+                    <div style={{
+                      padding: '8px 16px',
+                      background: stageEstimation.confidence === 'high' ? '#E8F5E9' : 
+                                  stageEstimation.confidence === 'moderate' ? '#FFF8E1' : '#FFEBEE',
+                      borderRadius: '20px'
+                    }}>
+                      <span style={{
+                        fontFamily: "'DM Sans', sans-serif",
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        color: stageEstimation.confidence === 'high' ? '#2E7D32' : 
+                               stageEstimation.confidence === 'moderate' ? '#F57F17' : '#C62828'
+                      }}>
+                        {stageEstimation.confidence === 'high' ? '● High' : 
+                         stageEstimation.confidence === 'moderate' ? '● Moderate' : '● Low'} confidence
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div style={{ 
+                    display: 'grid', 
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', 
+                    gap: '16px', 
+                    marginTop: '20px',
+                    padding: '16px',
+                    background: '#F8F7F5',
+                    borderRadius: '8px'
+                  }}>
+                    <div>
+                      <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '24px', fontWeight: '700', color: '#7B6B8D' }}>
+                        {stageEstimation.iadlImpairments}
+                      </div>
+                      <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '11px', color: '#6B6660' }}>
+                        IADL impairments
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '24px', fontWeight: '700', color: '#B87333' }}>
+                        {stageEstimation.badlImpairments}
+                      </div>
+                      <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '11px', color: '#6B6660' }}>
+                        BADL impairments
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '24px', fontWeight: '700', color: '#A03030' }}>
+                        {stageEstimation.severeIadl + stageEstimation.severeBadl}
+                      </div>
+                      <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '11px', color: '#6B6660' }}>
+                        Fully dependent
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Stage Details - if we have type-specific info */}
+                {stageEstimation.stageDetails && stageEstimation.topType && (
+                  <div className="card" style={{ padding: '24px', marginBottom: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
+                      <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#2D2A26', margin: 0 }}>
+                        What to Expect at This Stage
+                      </h3>
+                      <span style={{
+                        padding: '4px 12px',
+                        background: `${dementiaTypes[stageEstimation.topType].color}15`,
+                        color: dementiaTypes[stageEstimation.topType].color,
+                        borderRadius: '20px',
+                        fontFamily: "'DM Sans', sans-serif",
+                        fontSize: '12px',
+                        fontWeight: '600'
+                      }}>
+                        Based on {dementiaTypes[stageEstimation.topType].name} pattern
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      <div style={{ padding: '14px 16px', background: '#F8F7F5', borderRadius: '8px', borderLeft: '3px solid #6B6660' }}>
+                        <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '11px', color: '#6B6660', margin: '0 0 4px 0', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>
+                          Typical Duration
+                        </p>
+                        <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '14px', color: '#2D2A26', margin: 0 }}>
+                          {stageEstimation.stageDetails.duration}
+                        </p>
+                      </div>
+
+                      <div style={{ padding: '14px 16px', background: '#F8F7F5', borderRadius: '8px', borderLeft: '3px solid #5B8C6F' }}>
+                        <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '11px', color: '#5B8C6F', margin: '0 0 4px 0', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>
+                          Cognitive Changes
+                        </p>
+                        <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '14px', color: '#2D2A26', margin: 0, lineHeight: '1.5' }}>
+                          {stageEstimation.stageDetails.cognitive}
+                        </p>
+                      </div>
+
+                      <div style={{ padding: '14px 16px', background: '#F8F7F5', borderRadius: '8px', borderLeft: '3px solid #7B6B8D' }}>
+                        <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '11px', color: '#7B6B8D', margin: '0 0 4px 0', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>
+                          Functional Abilities
+                        </p>
+                        <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '14px', color: '#2D2A26', margin: 0, lineHeight: '1.5' }}>
+                          {stageEstimation.stageDetails.functional}
+                        </p>
+                      </div>
+
+                      <div style={{ padding: '14px 16px', background: '#F8F7F5', borderRadius: '8px', borderLeft: '3px solid #B87333' }}>
+                        <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '11px', color: '#B87333', margin: '0 0 4px 0', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>
+                          Behavioral Symptoms
+                        </p>
+                        <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '14px', color: '#2D2A26', margin: 0, lineHeight: '1.5' }}>
+                          {stageEstimation.stageDetails.behavioral}
+                        </p>
+                      </div>
+
+                      <div style={{ padding: '14px 16px', background: '#E8F5E9', borderRadius: '8px', borderLeft: '3px solid #2E7D32' }}>
+                        <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '11px', color: '#2E7D32', margin: '0 0 4px 0', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>
+                          Caregiving Focus
+                        </p>
+                        <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '14px', color: '#2D2A26', margin: 0, lineHeight: '1.5' }}>
+                          {stageEstimation.stageDetails.caregiving}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Stage Comparison Overview */}
+                <div className="card" style={{ padding: '24px' }}>
+                  <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#2D2A26', margin: '0 0 16px 0' }}>
+                    Stage Progression Overview
+                  </h3>
+                  <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                    {['mild', 'moderate', 'severe'].map(s => (
+                      <div 
+                        key={s}
+                        style={{
+                          flex: '1 1 200px',
+                          padding: '16px',
+                          background: stageEstimation.stage === s ? '#F0F7F4' : '#F8F7F5',
+                          borderRadius: '8px',
+                          border: stageEstimation.stage === s ? '2px solid #3D7A5A' : '1px solid #E8E5E0'
+                        }}
+                      >
+                        <h4 style={{ 
+                          fontFamily: "'DM Sans', sans-serif", 
+                          fontSize: '14px', 
+                          fontWeight: '600', 
+                          color: stageEstimation.stage === s ? '#3D7A5A' : '#6B6660',
+                          margin: '0 0 8px 0'
+                        }}>
+                          {s === 'mild' ? '🌱 Mild / Early' : s === 'moderate' ? '🌿 Moderate / Middle' : '🍂 Severe / Late'}
+                          {stageEstimation.stage === s && ' ← Current'}
+                        </h4>
+                        <ul style={{ 
+                          fontFamily: "'DM Sans', sans-serif", 
+                          fontSize: '12px', 
+                          color: '#5C5550',
+                          margin: 0,
+                          paddingLeft: '16px',
+                          lineHeight: '1.6'
+                        }}>
+                          {s === 'mild' && (
+                            <>
+                              <li>Can live mostly independently</li>
+                              <li>Needs help with complex tasks</li>
+                              <li>May still drive (with evaluation)</li>
+                            </>
+                          )}
+                          {s === 'moderate' && (
+                            <>
+                              <li>Needs daily supervision</li>
+                              <li>Help with ADLs required</li>
+                              <li>Should not drive</li>
+                            </>
+                          )}
+                          {s === 'severe' && (
+                            <>
+                              <li>24-hour care needed</li>
+                              <li>Dependent for all activities</li>
+                              <li>Focus on comfort & dignity</li>
+                            </>
+                          )}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Disclaimer */}
+                <div style={{
+                  marginTop: '16px',
+                  padding: '14px 18px',
+                  background: '#FFFBF5',
+                  borderRadius: '8px',
+                  borderLeft: '3px solid #D4A017'
+                }}>
+                  <p style={{
+                    fontFamily: "'DM Sans', sans-serif",
+                    fontSize: '12px',
+                    color: '#5C5550',
+                    margin: 0,
+                    lineHeight: '1.5'
+                  }}>
+                    <strong style={{ color: '#8B6914' }}>Note:</strong> Stage estimation is approximate and based on functional assessment. 
+                    Progression varies significantly between individuals. Some people remain in one stage for years while others 
+                    progress more quickly. Discuss staging and prognosis with your healthcare provider.
+                  </p>
+                </div>
+              </>
+            )}
+
+            {/* Show basic info even when totalAssessed < 4 */}
+            {stageEstimation.totalAssessed > 0 && stageEstimation.totalAssessed < 4 && (
+              <div className="card" style={{ padding: '24px' }}>
+                <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#2D2A26', margin: '0 0 16px 0' }}>
+                  Current Assessment Status
+                </h3>
+                <div style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', 
+                  gap: '16px', 
+                  marginBottom: '20px',
+                  padding: '16px',
+                  background: '#F8F7F5',
+                  borderRadius: '8px'
+                }}>
+                  <div>
+                    <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '24px', fontWeight: '700', color: '#7B6B8D' }}>
+                      {stageEstimation.iadlImpairments}
+                    </div>
+                    <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '11px', color: '#6B6660' }}>
+                      IADL impairments
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '24px', fontWeight: '700', color: '#B87333' }}>
+                      {stageEstimation.badlImpairments}
+                    </div>
+                    <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '11px', color: '#6B6660' }}>
+                      BADL impairments
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '24px', fontWeight: '700', color: '#6B6660' }}>
+                      {stageEstimation.totalAssessed}
+                    </div>
+                    <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '11px', color: '#6B6660' }}>
+                      Items assessed
+                    </div>
+                  </div>
+                </div>
+                <p style={{
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontSize: '14px',
+                  color: '#6B6660',
+                  margin: 0,
+                  lineHeight: '1.5'
+                }}>
+                  Complete at least 4 ADL assessments in the <strong>Functional Status</strong> tab to get a stage estimation with confidence level.
+                </p>
+              </div>
+            )}
           </>
         )}
 
