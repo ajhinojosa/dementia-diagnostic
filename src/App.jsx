@@ -2353,9 +2353,48 @@ export default function App() {
         {/* ============================================ */}
         {activeTab === 'history' && (
           <div className="card" style={{ padding: '24px' }}>
-            <h2 style={{ fontSize: '18px', fontWeight: '600', margin: '0 0 20px 0', color: '#2D2A26' }}>
+            <h2 style={{ fontSize: '18px', fontWeight: '600', margin: '0 0 16px 0', color: '#2D2A26' }}>
               Medical History & Background
             </h2>
+            
+            {/* Privacy Disclaimer */}
+            <div style={{
+              padding: '14px 18px',
+              marginBottom: '24px',
+              background: '#F8FAFB',
+              borderRadius: '8px',
+              borderLeft: '4px solid #5B8C6F'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5B8C6F" strokeWidth="2" style={{ flexShrink: 0, marginTop: '1px' }}>
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+                <div>
+                  <p style={{
+                    fontFamily: "'DM Sans', sans-serif",
+                    fontSize: '13px',
+                    fontWeight: '600',
+                    color: '#3D7A5A',
+                    margin: '0 0 6px 0'
+                  }}>
+                    Your Privacy is Protected
+                  </p>
+                  <p style={{
+                    fontFamily: "'DM Sans', sans-serif",
+                    fontSize: '12px',
+                    color: '#5C5550',
+                    margin: 0,
+                    lineHeight: '1.5'
+                  }}>
+                    All information entered on this page is stored <strong>only in your browser's local storage</strong> and is used 
+                    solely to populate the report you generate for your healthcare provider. This data is <strong>never transmitted 
+                    to any server</strong>, is not accessible to the application developer, and remains entirely under your control. 
+                    You may clear all saved data at any time using the "Clear" button.
+                  </p>
+                </div>
+              </div>
+            </div>
             
             {/* Patient Info */}
             <div style={{ marginBottom: '28px' }}>
