@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import jsPDF from 'jspdf';
 
 // Research-backed behavioral symptoms with subtype associations
 // Sources: NIA-AA criteria, DLB Consortium (2017), International bvFTD Criteria Consortium,
@@ -485,6 +486,217 @@ export default function App() {
       .map(([type]) => type);
   }, [scores]);
 
+  // Export to PDF function
+  const exportToPDF = () => {
+    const pdf = new jsPDF();
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const margin = 20;
+    let yPos = margin;
+    const lineHeight = 7;
+    const sectionSpacing = 10;
+
+    // Helper function to add a new page if needed
+    const checkNewPage = (requiredSpace) => {
+      if (yPos + requiredSpace > pageHeight - margin) {
+        pdf.addPage();
+        yPos = margin;
+        return true;
+      }
+      return false;
+    };
+
+    // Helper function to add wrapped text
+    const addWrappedText = (text, maxWidth, fontSize = 10, fontStyle = 'normal') => {
+      pdf.setFontSize(fontSize);
+      pdf.setFont('helvetica', fontStyle);
+      const lines = pdf.splitTextToSize(text, maxWidth);
+      lines.forEach(line => {
+        checkNewPage(lineHeight);
+        pdf.text(line, margin, yPos);
+        yPos += lineHeight;
+      });
+    };
+
+    // Title
+    pdf.setFontSize(18);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Dementia Subtype Comparison Tool', pageWidth / 2, yPos, { align: 'center' });
+    yPos += lineHeight * 2;
+
+    // Date
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'normal');
+    const dateStr = new Date().toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+    pdf.text(`Generated on: ${dateStr}`, pageWidth / 2, yPos, { align: 'center' });
+    yPos += lineHeight * 2;
+
+    // Disclaimer
+    pdf.setFontSize(9);
+    pdf.setTextColor(160, 48, 48);
+    addWrappedText(
+      'IMPORTANT: For discussion with healthcare providers only. This tool cannot replace professional medical evaluation.',
+      pageWidth - (margin * 2),
+      9
+    );
+    pdf.setTextColor(0, 0, 0);
+    yPos += sectionSpacing;
+
+    // Pattern Analysis Section
+    if (hasAnyChecked) {
+      pdf.setFontSize(14);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Pattern Analysis', margin, yPos);
+      yPos += lineHeight * 1.5;
+
+      // Sort types for display
+      const displayTypes = sortedTypes.filter(type => scores[type].total > 0);
+      
+      displayTypes.forEach((type, index) => {
+        checkNewPage(lineHeight * 4);
+        const score = scores[type];
+        const info = dementiaTypes[type];
+
+        // Type name and scores
+        pdf.setFontSize(12);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setTextColor(
+          parseInt(info.color.slice(1, 3), 16),
+          parseInt(info.color.slice(3, 5), 16),
+          parseInt(info.color.slice(5, 7), 16)
+        );
+        pdf.text(`${info.name}`, margin, yPos);
+        pdf.setTextColor(0, 0, 0);
+        
+        yPos += lineHeight;
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(
+          `Discriminating: ${score.discriminating}/${score.maxDiscriminating} • Total: ${score.total}/${score.maxTotal}`,
+          margin + 5,
+          yPos
+        );
+        yPos += lineHeight * 0.5;
+
+        // Progress bar representation
+        const barWidth = pageWidth - (margin * 2) - 10;
+        const barHeight = 4;
+        const fillWidth = (score.discriminatingPercentage / 100) * barWidth;
+        pdf.setFillColor(
+          parseInt(info.color.slice(1, 3), 16),
+          parseInt(info.color.slice(3, 5), 16),
+          parseInt(info.color.slice(5, 7), 16)
+        );
+        pdf.rect(margin + 5, yPos, fillWidth, barHeight, 'F');
+        pdf.setDrawColor(200, 200, 200);
+        pdf.rect(margin + 5, yPos, barWidth, barHeight, 'S');
+        yPos += lineHeight * 1.5;
+      });
+
+      // Top Match
+      if (sortedTypes[0] && scores[sortedTypes[0]].discriminating > 0) {
+        checkNewPage(lineHeight * 4);
+        const topType = sortedTypes[0];
+        const topInfo = dementiaTypes[topType];
+        pdf.setFontSize(11);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Strongest Pattern Match:', margin, yPos);
+        yPos += lineHeight;
+        pdf.setFontSize(12);
+        pdf.setTextColor(
+          parseInt(topInfo.color.slice(1, 3), 16),
+          parseInt(topInfo.color.slice(3, 5), 16),
+          parseInt(topInfo.color.slice(5, 7), 16)
+        );
+        pdf.text(topInfo.name, margin + 5, yPos);
+        pdf.setTextColor(0, 0, 0);
+        yPos += lineHeight;
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'italic');
+        addWrappedText(topInfo.keyFeature, pageWidth - (margin * 2) - 5, 10, 'italic');
+      }
+
+      yPos += sectionSpacing;
+    }
+
+    // Selected Symptoms Section
+    pdf.setFontSize(14);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Selected Symptoms', margin, yPos);
+    yPos += lineHeight * 1.5;
+
+    // Get selected symptoms grouped by category
+    const selectedSymptoms = globalSymptoms.filter(s => checked[s.id]);
+    const symptomsByCategory = {};
+    
+    selectedSymptoms.forEach(symptom => {
+      if (!symptomsByCategory[symptom.category]) {
+        symptomsByCategory[symptom.category] = [];
+      }
+      symptomsByCategory[symptom.category].push(symptom);
+    });
+
+    // Display symptoms by category
+    Object.keys(symptomsByCategory).sort().forEach(category => {
+      checkNewPage(lineHeight * 3);
+      pdf.setFontSize(12);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text(category, margin, yPos);
+      yPos += lineHeight * 1.2;
+
+      symptomsByCategory[category].forEach(symptom => {
+        checkNewPage(lineHeight * 4);
+        
+        // Symptom text
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'normal');
+        const symptomText = symptom.discriminating 
+          ? `[High-value] ${symptom.text}`
+          : symptom.text;
+        addWrappedText(symptomText, pageWidth - (margin * 2), 10);
+        
+        // Type tags (position after wrapped text)
+        const typeTags = symptom.types.map(type => dementiaTypes[type].shortName).join(', ');
+        pdf.setFontSize(9);
+        pdf.setTextColor(100, 100, 100);
+        pdf.text(`Types: ${typeTags}`, margin + 5, yPos);
+        pdf.setTextColor(0, 0, 0);
+        yPos += lineHeight * 0.8;
+      });
+
+      yPos += lineHeight * 0.5;
+    });
+
+    // Footer
+    const totalPages = pdf.internal.pages.length - 1;
+    for (let i = 1; i <= totalPages; i++) {
+      pdf.setPage(i);
+      pdf.setFontSize(8);
+      pdf.setTextColor(139, 134, 128);
+      pdf.text(
+        'Based on: NIA-AA Alzheimer\'s criteria (2024), DLB Consortium 4th consensus (2017), International bvFTD Criteria Consortium, NINDS-AIREN vascular criteria',
+        pageWidth / 2,
+        pageHeight - 10,
+        { align: 'center' }
+      );
+      pdf.text(
+        `Page ${i} of ${totalPages}`,
+        pageWidth - margin,
+        pageHeight - 10,
+        { align: 'right' }
+      );
+      pdf.setTextColor(0, 0, 0);
+    }
+
+    // Save PDF
+    const fileName = `dementia-analysis-${new Date().toISOString().split('T')[0]}.pdf`;
+    pdf.save(fileName);
+  };
+
   return (
     <div style={{
       minHeight: '100vh',
@@ -653,17 +865,51 @@ export default function App() {
         {/* Score Summary */}
         {hasAnyChecked && (
           <div className="card" style={{ padding: '20px', marginBottom: '20px' }}>
-            <h3 style={{
-              fontFamily: "'DM Sans', sans-serif",
-              fontSize: '12px',
-              color: '#6B6660',
-              margin: '0 0 16px 0',
-              textTransform: 'uppercase',
-              letterSpacing: '0.5px',
-              fontWeight: '600'
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center',
+              marginBottom: '16px'
             }}>
-              Pattern Analysis
-            </h3>
+              <h3 style={{
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: '12px',
+                color: '#6B6660',
+                margin: 0,
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                fontWeight: '600'
+              }}>
+                Pattern Analysis
+              </h3>
+              <button
+                onClick={exportToPDF}
+                style={{
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  color: 'white',
+                  background: '#3D7A5A',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '8px 16px',
+                  cursor: 'pointer',
+                  transition: 'background 0.2s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+                onMouseEnter={(e) => e.target.style.background = '#2D5A43'}
+                onMouseLeave={(e) => e.target.style.background = '#3D7A5A'}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                Export to PDF
+              </button>
+            </div>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               {sortedTypes.map(type => {
