@@ -751,6 +751,7 @@ export default function App() {
   // State for view mode
   const [activeTab, setActiveTab] = useState("symptoms"); // symptoms, history, adl, stage, report
   const [showPrintView, setShowPrintView] = useState(false);
+  const [showSourcesView, setShowSourcesView] = useState(false);
   const [saveStatus, setSaveStatus] = useState(""); // For save confirmation message
 
   // Load saved data on mount
@@ -1308,6 +1309,268 @@ export default function App() {
   }
 
   // ============================================
+  // SOURCES VIEW COMPONENT
+  // ============================================
+  
+  if (showSourcesView) {
+    // Group symptoms by category for better organization
+    const symptomsByCategory = {};
+    globalSymptoms.forEach(s => {
+      if (!symptomsByCategory[s.category]) {
+        symptomsByCategory[s.category] = [];
+      }
+      symptomsByCategory[s.category].push(s);
+    });
+
+    return (
+      <div style={{
+        fontFamily: "'Georgia', serif",
+        padding: '40px',
+        maxWidth: '900px',
+        margin: '0 auto',
+        background: 'white',
+        color: '#1a1a1a',
+        lineHeight: '1.6'
+      }}>
+        <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600&family=DM+Sans:wght@400;500;600&display=swap');
+        `}</style>
+        
+        {/* Back Button */}
+        <div style={{
+          position: 'fixed',
+          top: '20px',
+          right: '20px',
+          zIndex: 1000
+        }}>
+          <button
+            onClick={() => setShowSourcesView(false)}
+            style={{
+              padding: '12px 24px',
+              background: '#3D7A5A',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              fontFamily: "'DM Sans', sans-serif"
+            }}
+          >
+            ← Back to Tool
+          </button>
+        </div>
+
+        {/* Header */}
+        <div style={{ borderBottom: '2px solid #2D2A26', paddingBottom: '20px', marginBottom: '30px' }}>
+          <h1 style={{ fontSize: '28px', margin: '0 0 8px 0', fontWeight: '600' }}>
+            Sources & Methodology
+          </h1>
+          <p style={{ fontSize: '14px', color: '#666', margin: 0 }}>
+            Research basis for symptom indicators and diagnostic criteria
+          </p>
+        </div>
+
+        {/* Overview Section */}
+        <div style={{ marginBottom: '40px' }}>
+          <h2 style={{ fontSize: '20px', borderBottom: '1px solid #ddd', paddingBottom: '8px', marginBottom: '15px' }}>
+            Overview
+          </h2>
+          <p style={{ fontSize: '15px', marginBottom: '15px', lineHeight: '1.7' }}>
+            This tool is designed to help caregivers document and organize observations about cognitive and functional changes 
+            to facilitate discussions with healthcare providers. The symptom indicators and their associations with specific 
+            dementia types are based on established diagnostic criteria and peer-reviewed research.
+          </p>
+          <div style={{ background: '#FFF8E1', padding: '16px', borderRadius: '8px', borderLeft: '4px solid #F57F17', marginBottom: '20px' }}>
+            <p style={{ fontSize: '14px', margin: 0, color: '#5C5550' }}>
+              <strong style={{ color: '#8B6914' }}>Important:</strong> This tool is not a diagnostic instrument. 
+              Dementia diagnosis requires comprehensive medical evaluation including cognitive testing, neuroimaging, 
+              laboratory studies, and clinical assessment by qualified healthcare professionals.
+            </p>
+          </div>
+        </div>
+
+        {/* Primary Diagnostic Frameworks */}
+        <div style={{ marginBottom: '40px' }}>
+          <h2 style={{ fontSize: '20px', borderBottom: '1px solid #ddd', paddingBottom: '8px', marginBottom: '15px' }}>
+            Primary Diagnostic Frameworks
+          </h2>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ padding: '16px', background: '#F8F7F5', borderRadius: '8px', borderLeft: `4px solid ${dementiaTypes.alzheimers.color}` }}>
+              <h3 style={{ fontSize: '16px', fontWeight: '600', margin: '0 0 8px 0', color: dementiaTypes.alzheimers.color }}>
+                Alzheimer's Disease
+              </h3>
+              <ul style={{ fontSize: '14px', margin: 0, paddingLeft: '20px', lineHeight: '1.6' }}>
+                <li><strong>NIA-AA Research Framework (2018)</strong> - National Institute on Aging and Alzheimer's Association diagnostic criteria</li>
+                <li><strong>Alzheimer's Association 10 Warning Signs</strong> - Clinical observation guidelines</li>
+                <li><strong>McKhann et al. (2011)</strong> - Recommendations for diagnosis of Alzheimer's disease</li>
+              </ul>
+            </div>
+
+            <div style={{ padding: '16px', background: '#F8F7F5', borderRadius: '8px', borderLeft: `4px solid ${dementiaTypes.vascular.color}` }}>
+              <h3 style={{ fontSize: '16px', fontWeight: '600', margin: '0 0 8px 0', color: dementiaTypes.vascular.color }}>
+                Vascular Dementia
+              </h3>
+              <ul style={{ fontSize: '14px', margin: 0, paddingLeft: '20px', lineHeight: '1.6' }}>
+                <li><strong>NINDS-AIREN Criteria</strong> - National Institute of Neurological Disorders and Stroke international criteria</li>
+                <li><strong>Vascular Cognitive Impairment (VCI) Statement (2011)</strong> - AHA/ASA Scientific Statement</li>
+                <li><strong>Subcortical vascular dementia features</strong> - Psychomotor slowing, gait disturbance, executive dysfunction</li>
+              </ul>
+            </div>
+
+            <div style={{ padding: '16px', background: '#F8F7F5', borderRadius: '8px', borderLeft: `4px solid ${dementiaTypes.lewy.color}` }}>
+              <h3 style={{ fontSize: '16px', fontWeight: '600', margin: '0 0 8px 0', color: dementiaTypes.lewy.color }}>
+                Lewy Body Dementia
+              </h3>
+              <ul style={{ fontSize: '14px', margin: 0, paddingLeft: '20px', lineHeight: '1.6' }}>
+                <li><strong>DLB Consortium 4th Consensus Criteria (2017)</strong> - McKeith et al., Neurology - defines core and supportive features</li>
+                <li><strong>Core features:</strong> Fluctuating cognition, recurrent visual hallucinations, REM sleep behavior disorder, parkinsonism</li>
+                <li><strong>NINDS/NIA diagnostic guidelines</strong> - Additional clinical features and biomarkers</li>
+              </ul>
+            </div>
+
+            <div style={{ padding: '16px', background: '#F8F7F5', borderRadius: '8px', borderLeft: `4px solid ${dementiaTypes.ftd.color}` }}>
+              <h3 style={{ fontSize: '16px', fontWeight: '600', margin: '0 0 8px 0', color: dementiaTypes.ftd.color }}>
+                Frontotemporal Dementia
+              </h3>
+              <ul style={{ fontSize: '14px', margin: 0, paddingLeft: '20px', lineHeight: '1.6' }}>
+                <li><strong>International bvFTD Criteria Consortium (Rascovsky et al., 2011)</strong> - Brain - 6 core behavioral features</li>
+                <li><strong>Primary Progressive Aphasia criteria</strong> - Non-fluent variant (nfvPPA) and semantic variant (svPPA)</li>
+                <li><strong>UCSF Memory and Aging Center research</strong> - Behavioral and eating pattern changes</li>
+              </ul>
+            </div>
+
+            <div style={{ padding: '16px', background: '#F8F7F5', borderRadius: '8px', borderLeft: `4px solid ${dementiaTypes.mixed.color}` }}>
+              <h3 style={{ fontSize: '16px', fontWeight: '600', margin: '0 0 8px 0', color: dementiaTypes.mixed.color }}>
+                Mixed Dementia
+              </h3>
+              <ul style={{ fontSize: '14px', margin: 0, paddingLeft: '20px', lineHeight: '1.6' }}>
+                <li><strong>Alzheimer's Association mixed dementia guidelines</strong> - Combined AD + vascular pathology recognition</li>
+                <li><strong>Rush Memory and Aging Project</strong> - Autopsy studies showing 50%+ of dementia in 80+ has mixed pathology</li>
+                <li><strong>Lancet Neurology (2017, 2019)</strong> - Epidemiological studies on mixed pathology prevalence</li>
+                <li><strong>JAMA Neurology (2015)</strong> - Accelerated decline with multiple pathologies</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Methodology */}
+        <div style={{ marginBottom: '40px' }}>
+          <h2 style={{ fontSize: '20px', borderBottom: '1px solid #ddd', paddingBottom: '8px', marginBottom: '15px' }}>
+            Methodology
+          </h2>
+          
+          <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '10px' }}>Discriminating vs. Non-Discriminating Symptoms</h3>
+          <p style={{ fontSize: '14px', marginBottom: '15px', lineHeight: '1.6' }}>
+            Symptoms are classified as <strong>"discriminating" (HIGH-VALUE)</strong> when they strongly suggest a specific dementia type 
+            and help differentiate it from other forms. Non-discriminating symptoms may be present across multiple dementia types.
+          </p>
+          
+          <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '10px' }}>Scoring Approach</h3>
+          <p style={{ fontSize: '14px', marginBottom: '15px', lineHeight: '1.6' }}>
+            The pattern analysis prioritizes discriminating symptoms when ranking dementia type matches. This approach is based on 
+            the principle that certain symptoms are more specific to particular dementia types and carry greater diagnostic weight.
+          </p>
+
+          <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '10px' }}>Stage Estimation</h3>
+          <p style={{ fontSize: '14px', marginBottom: '15px', lineHeight: '1.6' }}>
+            Functional staging is based on Activities of Daily Living (ADL) assessment, using established instruments:
+          </p>
+          <ul style={{ fontSize: '14px', marginBottom: '15px', paddingLeft: '20px', lineHeight: '1.6' }}>
+            <li><strong>Lawton IADL Scale</strong> - Instrumental Activities of Daily Living (complex tasks)</li>
+            <li><strong>Katz ADL Index</strong> - Basic Activities of Daily Living (self-care)</li>
+            <li><strong>Clinical Dementia Rating (CDR)</strong> - Staging framework reference</li>
+          </ul>
+        </div>
+
+        {/* Detailed Symptom Evidence */}
+        <div style={{ marginBottom: '40px' }}>
+          <h2 style={{ fontSize: '20px', borderBottom: '1px solid #ddd', paddingBottom: '8px', marginBottom: '15px' }}>
+            Symptom Evidence by Category
+          </h2>
+          
+          {Object.entries(symptomsByCategory).map(([category, symptoms]) => (
+            <div key={category} style={{ marginBottom: '30px' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '12px', color: '#2D2A26' }}>
+                {category}
+              </h3>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                <thead>
+                  <tr style={{ background: '#F8F7F5', borderBottom: '2px solid #ddd' }}>
+                    <th style={{ textAlign: 'left', padding: '10px 8px', width: '35%' }}>Symptom</th>
+                    <th style={{ textAlign: 'center', padding: '10px 8px', width: '15%' }}>Types</th>
+                    <th style={{ textAlign: 'center', padding: '10px 8px', width: '10%' }}>Key?</th>
+                    <th style={{ textAlign: 'left', padding: '10px 8px', width: '40%' }}>Evidence Source</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {symptoms.map(symptom => (
+                    <tr key={symptom.id} style={{ borderBottom: '1px solid #eee' }}>
+                      <td style={{ padding: '10px 8px', verticalAlign: 'top' }}>
+                        {symptom.text}
+                      </td>
+                      <td style={{ textAlign: 'center', padding: '10px 8px', verticalAlign: 'top' }}>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', justifyContent: 'center' }}>
+                          {symptom.types.map(t => (
+                            <span key={t} style={{
+                              padding: '2px 6px',
+                              background: `${dementiaTypes[t].color}20`,
+                              color: dementiaTypes[t].color,
+                              borderRadius: '4px',
+                              fontSize: '10px',
+                              fontWeight: '600',
+                              fontFamily: "'DM Sans', sans-serif"
+                            }}>
+                              {dementiaTypes[t].shortName}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                      <td style={{ textAlign: 'center', padding: '10px 8px', verticalAlign: 'top' }}>
+                        {symptom.discriminating ? (
+                          <span style={{ color: '#B87333', fontWeight: '600' }}>★</span>
+                        ) : '—'}
+                      </td>
+                      <td style={{ padding: '10px 8px', fontSize: '12px', color: '#666', verticalAlign: 'top', lineHeight: '1.5' }}>
+                        {symptom.evidence}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
+        </div>
+
+        {/* Additional References */}
+        <div style={{ marginBottom: '40px' }}>
+          <h2 style={{ fontSize: '20px', borderBottom: '1px solid #ddd', paddingBottom: '8px', marginBottom: '15px' }}>
+            Additional References
+          </h2>
+          <ul style={{ fontSize: '14px', lineHeight: '1.8', paddingLeft: '20px' }}>
+            <li>Alzheimer's Association. (2024). <em>2024 Alzheimer's Disease Facts and Figures.</em></li>
+            <li>McKhann GM, et al. (2011). The diagnosis of dementia due to Alzheimer's disease. <em>Alzheimer's & Dementia, 7</em>(3), 263-269.</li>
+            <li>McKeith IG, et al. (2017). Diagnosis and management of dementia with Lewy bodies: Fourth consensus report. <em>Neurology, 89</em>(1), 88-100.</li>
+            <li>Rascovsky K, et al. (2011). Sensitivity of revised diagnostic criteria for the behavioural variant of frontotemporal dementia. <em>Brain, 134</em>(9), 2456-2477.</li>
+            <li>Román GC, et al. (1993). Vascular dementia: diagnostic criteria for research studies. <em>Neurology, 43</em>(2), 250-260.</li>
+            <li>Schneider JA, et al. (2007). Mixed brain pathologies account for most dementia cases in community-dwelling older persons. <em>Neurology, 69</em>(24), 2197-2204.</li>
+            <li>Kapasi A, et al. (2017). Impact of multiple pathologies on the threshold for clinically overt dementia. <em>Acta Neuropathologica, 134</em>(2), 171-186.</li>
+            <li>Livingston G, et al. (2020). Dementia prevention, intervention, and care: 2020 report of the Lancet Commission. <em>The Lancet, 396</em>(10248), 413-446.</li>
+          </ul>
+        </div>
+
+        {/* Footer */}
+        <div style={{ borderTop: '1px solid #ddd', paddingTop: '15px', fontSize: '12px', color: '#888' }}>
+          <p style={{ margin: 0 }}>
+            This information is provided for educational purposes to support informed discussions with healthcare providers. 
+            Always consult qualified medical professionals for diagnosis and treatment decisions.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ============================================
   // MAIN INTERACTIVE VIEW
   // ============================================
   
@@ -1494,6 +1757,22 @@ export default function App() {
               margin: 0
             }}>
               Document symptoms, medical history, and functional status to prepare for healthcare discussions.
+              <button
+                onClick={() => setShowSourcesView(true)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#7B6B8D',
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  marginLeft: '8px',
+                  textDecoration: 'underline',
+                  padding: 0
+                }}
+              >
+                View Sources & Methodology
+              </button>
             </p>
           </div>
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
