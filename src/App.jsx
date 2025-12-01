@@ -489,6 +489,140 @@ const adlStatusOptions = [
   { value: "na", label: "N/A or not assessed" }
 ];
 
+// Stage information by dementia type
+const stageInfo = {
+  alzheimers: {
+    mild: {
+      name: "Mild / Early Stage",
+      duration: "Typically 2-4 years",
+      cognitive: "Memory lapses for recent events, word-finding difficulty, misplacing items, trouble with complex planning",
+      functional: "Can live independently but may need help with finances, medications, or complex tasks",
+      behavioral: "May show anxiety, withdrawal from challenging situations, denial of problems",
+      caregiving: "Light supervision, help with organization, medication reminders, accompaniment to appointments"
+    },
+    moderate: {
+      name: "Moderate / Middle Stage",
+      duration: "Often the longest stage, 2-10 years",
+      cognitive: "Significant memory gaps, confusion about time/place, difficulty recognizing family, trouble with basic math",
+      functional: "Needs help with daily activities: dressing, bathing, meal preparation. Should not drive.",
+      behavioral: "Wandering, sundowning, suspicion/paranoia, sleep disturbances, repetitive behaviors, personality changes",
+      caregiving: "Hands-on daily assistance, 24-hour supervision may become necessary, structured routines essential"
+    },
+    severe: {
+      name: "Severe / Late Stage",
+      duration: "Typically 1-3 years",
+      cognitive: "Minimal awareness of surroundings, very limited communication, may not recognize self or close family",
+      functional: "Dependent for all activities: eating, toileting, mobility. May become bedbound.",
+      behavioral: "Loss of motor control, difficulty swallowing, increased sleep, vulnerability to infections",
+      caregiving: "Full-time skilled care, focus on comfort and dignity, hospice may be appropriate"
+    }
+  },
+  vascular: {
+    mild: {
+      name: "Mild / Early Stage",
+      duration: "Variable, depends on vascular events",
+      cognitive: "Slowed thinking, difficulty concentrating, trouble with planning and organization, memory less affected initially",
+      functional: "May have subtle physical symptoms (mild weakness, gait changes), can manage most daily activities",
+      behavioral: "Depression common, apathy, emotional flatness or lability",
+      caregiving: "Focus on vascular risk factor management, medication adherence, fall prevention"
+    },
+    moderate: {
+      name: "Moderate / Middle Stage",
+      duration: "May progress in steps rather than gradually",
+      cognitive: "More pronounced executive dysfunction, confusion, disorientation, memory problems worsen",
+      functional: "Noticeable gait problems, balance issues, may need assistance with IADLs, driving unsafe",
+      behavioral: "Emotional changes more pronounced, possible pseudobulbar affect (uncontrolled laughing/crying)",
+      caregiving: "Daily supervision, fall prevention critical, watch for signs of new stroke/TIA"
+    },
+    severe: {
+      name: "Severe / Late Stage",
+      duration: "Variable",
+      cognitive: "Severe cognitive impairment across all domains",
+      functional: "Significant motor impairment, incontinence, dependent for most or all activities",
+      behavioral: "May have swallowing difficulties, high infection risk",
+      caregiving: "Full-time care, positioning and skin care important, aspiration precautions"
+    }
+  },
+  lewy: {
+    mild: {
+      name: "Mild / Early Stage",
+      duration: "Variable, often 1-2 years",
+      cognitive: "Fluctuating attention/alertness, visual-spatial problems, executive dysfunction; memory may be relatively preserved",
+      functional: "REM sleep behavior disorder often present, mild movement symptoms possible, can manage most activities",
+      behavioral: "Visual hallucinations may begin (often not distressing initially), depression, anxiety, apathy",
+      caregiving: "Monitor fluctuations, ensure sleep safety for RBD, AVOID antipsychotics, document patterns"
+    },
+    moderate: {
+      name: "Moderate / Middle Stage",
+      duration: "Often 2-4 years",
+      cognitive: "More pronounced fluctuations, worsening visuospatial deficits, delusions may develop",
+      functional: "Parkinsonism more evident (stiffness, slowness, falls), needs help with daily activities",
+      behavioral: "Hallucinations may become more frequent/distressing, sleep problems worsen, autonomic symptoms",
+      caregiving: "Fall prevention critical, medication management complex, watch for orthostatic hypotension"
+    },
+    severe: {
+      name: "Severe / Late Stage",
+      duration: "Typically 1-2 years",
+      cognitive: "Severe impairment, minimal responsiveness during 'off' periods",
+      functional: "Severe parkinsonism, may be bedbound, swallowing difficulties, high fall risk if mobile",
+      behavioral: "Continued hallucinations, severe sleep disruption, autonomic failure",
+      caregiving: "Full skilled care, aspiration precautions, comfort focus, medication review essential"
+    }
+  },
+  ftd: {
+    mild: {
+      name: "Mild / Early Stage",
+      duration: "Often 1-3 years",
+      cognitive: "Executive dysfunction, but memory often preserved; person may perform normally on standard memory tests",
+      functional: "Can manage self-care but judgment impaired; may make poor decisions, inappropriate social behavior",
+      behavioral: "Personality changes, loss of empathy, disinhibition, apathy, compulsive behaviors, dietary changes",
+      caregiving: "Behavioral management strategies, protect from financial exploitation, maintain structure"
+    },
+    moderate: {
+      name: "Moderate / Middle Stage",
+      duration: "Often 2-4 years",
+      cognitive: "More pronounced executive deficits, language may deteriorate (especially in language variants)",
+      functional: "Needs supervision and help with daily activities, cannot work or manage complex tasks",
+      behavioral: "Behaviors may intensify or change, compulsions may become more rigid, social awareness further diminished",
+      caregiving: "24-hour supervision often needed, behavioral interventions, structured environment essential"
+    },
+    severe: {
+      name: "Severe / Late Stage",
+      duration: "Typically 1-3 years",
+      cognitive: "Severe impairment across domains, may become mute (especially language variants)",
+      functional: "Dependent for all care, motor symptoms may emerge (parkinsonism or motor neuron signs)",
+      behavioral: "May become more passive/inert, swallowing difficulties common",
+      caregiving: "Full-time skilled care, feeding support, comfort-focused care"
+    }
+  },
+  mixed: {
+    mild: {
+      name: "Mild / Early Stage",
+      duration: "Variable",
+      cognitive: "Combination of symptoms from multiple dementia types; may include memory problems + executive dysfunction",
+      functional: "Some difficulty with complex tasks, may have subtle physical symptoms depending on types involved",
+      behavioral: "Variable depending on which types are present",
+      caregiving: "Address all contributing factors (e.g., vascular risk management + AD-focused interventions)"
+    },
+    moderate: {
+      name: "Moderate / Middle Stage",
+      duration: "Often progresses faster than single-type dementia",
+      cognitive: "More rapid decline typical; multiple cognitive domains affected",
+      functional: "Needs substantial help with daily activities, multiple symptom types to manage",
+      behavioral: "May show behavioral symptoms from multiple dementia types",
+      caregiving: "Complex care needs, may need to balance different symptom management approaches"
+    },
+    severe: {
+      name: "Severe / Late Stage",
+      duration: "Variable",
+      cognitive: "Severe impairment",
+      functional: "Fully dependent, may have combined motor + cognitive decline",
+      behavioral: "Variable end-stage symptoms depending on types involved",
+      caregiving: "Full-time skilled care, comfort focus"
+    }
+  }
+};
+
 const categories = [...new Set(globalSymptoms.map(s => s.category))];
 
 // ============================================
@@ -533,7 +667,7 @@ export default function App() {
   const [adlData, setAdlData] = useState({});
   
   // State for view mode
-  const [activeTab, setActiveTab] = useState("symptoms"); // symptoms, history, adl, report
+  const [activeTab, setActiveTab] = useState("symptoms"); // symptoms, history, adl, stage, report
   const [showPrintView, setShowPrintView] = useState(false);
 
   // Toggle symptom checked
@@ -607,23 +741,76 @@ export default function App() {
     }));
   }, [symptomData]);
 
-  // Calculate ADL summary
-  const adlSummary = useMemo(() => {
-    const iadlIssues = iadlItems.filter(item => 
+  // Calculate ADL summary and stage estimation
+  const stageEstimation = useMemo(() => {
+    // Count ADL impairments
+    const iadlImpairments = iadlItems.filter(item => 
       adlData[item.id] && !["", "independent", "na"].includes(adlData[item.id])
-    ).length;
-    const badlIssues = badlItems.filter(item => 
+    );
+    const badlImpairments = badlItems.filter(item => 
       adlData[item.id] && !["", "independent", "na"].includes(adlData[item.id])
-    ).length;
+    );
     
-    let stage = "Unable to determine";
-    if (badlIssues >= 4) stage = "Severe (Late Stage)";
-    else if (badlIssues >= 2 || iadlIssues >= 6) stage = "Moderate (Middle Stage)";
-    else if (iadlIssues >= 2) stage = "Mild (Early Stage)";
-    else if (iadlIssues === 0 && badlIssues === 0 && Object.keys(adlData).length > 0) stage = "Minimal impairment";
+    // Count severe impairments (needs full help)
+    const severeIadl = iadlItems.filter(item => adlData[item.id] === "dependent").length;
+    const severeBadl = badlItems.filter(item => adlData[item.id] === "dependent").length;
     
-    return { iadlIssues, badlIssues, stage };
-  }, [adlData]);
+    // Count symptom severity
+    const severeSymptoms = Object.values(symptomData).filter(s => s?.checked && s?.severity === "severe").length;
+    const moderateSymptoms = Object.values(symptomData).filter(s => s?.checked && s?.severity === "moderate").length;
+    
+    // Determine stage based on combined factors
+    let stage = "unknown";
+    let stageLabel = "Unable to determine";
+    let confidence = "low";
+    
+    const iadlCount = iadlImpairments.length;
+    const badlCount = badlImpairments.length;
+    const totalAssessed = Object.keys(adlData).filter(k => adlData[k] && adlData[k] !== "" && adlData[k] !== "na").length;
+    
+    if (totalAssessed >= 4) {
+      confidence = "moderate";
+      
+      if (severeBadl >= 4 || (severeBadl >= 2 && severeIadl >= 4)) {
+        stage = "severe";
+        stageLabel = "Severe / Late Stage";
+        confidence = "high";
+      } else if (badlCount >= 3 || (badlCount >= 1 && iadlCount >= 5) || severeSymptoms >= 3) {
+        stage = "moderate";
+        stageLabel = "Moderate / Middle Stage";
+        if (badlCount >= 4 || severeIadl >= 5) confidence = "high";
+      } else if (iadlCount >= 2 || moderateSymptoms >= 2) {
+        stage = "mild";
+        stageLabel = "Mild / Early Stage";
+        if (iadlCount >= 3 && badlCount === 0) confidence = "high";
+      } else if (iadlCount <= 1 && badlCount === 0) {
+        stage = "minimal";
+        stageLabel = "Minimal or Questionable Impairment";
+      }
+    }
+    
+    // Get the most likely dementia type
+    const topType = sortedTypes[0] && scores[sortedTypes[0]]?.discriminating > 0 ? sortedTypes[0] : null;
+    
+    // Get stage-specific information if we have both stage and type
+    let stageDetails = null;
+    if (stage && stage !== "unknown" && stage !== "minimal" && topType && stageInfo[topType]) {
+      stageDetails = stageInfo[topType][stage];
+    }
+    
+    return {
+      iadlImpairments: iadlCount,
+      badlImpairments: badlCount,
+      severeIadl,
+      severeBadl,
+      stage,
+      stageLabel,
+      confidence,
+      topType,
+      stageDetails,
+      totalAssessed
+    };
+  }, [adlData, symptomData, sortedTypes, scores]);
 
   // ============================================
   // PRINT VIEW COMPONENT
@@ -853,9 +1040,42 @@ export default function App() {
           <h2 style={{ fontSize: '18px', borderBottom: '1px solid #ddd', paddingBottom: '8px', marginBottom: '15px' }}>
             Functional Independence Assessment
           </h2>
-          <p style={{ fontSize: '14px', marginBottom: '15px' }}>
-            <strong>Estimated Stage:</strong> {adlSummary.stage}
+          <p style={{ fontSize: '14px', marginBottom: '8px' }}>
+            <strong>Estimated Stage:</strong> {stageEstimation.stageLabel}
+            {stageEstimation.confidence && (
+              <span style={{ 
+                marginLeft: '10px', 
+                fontSize: '12px', 
+                color: stageEstimation.confidence === 'high' ? '#2E7D32' : 
+                       stageEstimation.confidence === 'moderate' ? '#F57F17' : '#C62828'
+              }}>
+                ({stageEstimation.confidence} confidence)
+              </span>
+            )}
           </p>
+          <p style={{ fontSize: '13px', color: '#555', marginBottom: '15px' }}>
+            IADL impairments: {stageEstimation.iadlImpairments} | BADL impairments: {stageEstimation.badlImpairments} | Fully dependent: {stageEstimation.severeIadl + stageEstimation.severeBadl}
+          </p>
+          
+          {/* Stage expectations if available */}
+          {stageEstimation.stageDetails && stageEstimation.topType && (
+            <div style={{ 
+              background: '#f8f8f8', 
+              padding: '12px 15px', 
+              borderRadius: '6px', 
+              marginBottom: '20px',
+              borderLeft: `3px solid ${dementiaTypes[stageEstimation.topType].color}`
+            }}>
+              <p style={{ fontSize: '12px', fontWeight: '600', margin: '0 0 8px 0', color: dementiaTypes[stageEstimation.topType].color }}>
+                Expected at this stage ({dementiaTypes[stageEstimation.topType].name}):
+              </p>
+              <p style={{ fontSize: '12px', margin: '0 0 6px 0' }}><strong>Duration:</strong> {stageEstimation.stageDetails.duration}</p>
+              <p style={{ fontSize: '12px', margin: '0 0 6px 0' }}><strong>Cognitive:</strong> {stageEstimation.stageDetails.cognitive}</p>
+              <p style={{ fontSize: '12px', margin: '0 0 6px 0' }}><strong>Functional:</strong> {stageEstimation.stageDetails.functional}</p>
+              <p style={{ fontSize: '12px', margin: '0 0 6px 0' }}><strong>Behavioral:</strong> {stageEstimation.stageDetails.behavioral}</p>
+              <p style={{ fontSize: '12px', margin: '0' }}><strong>Caregiving focus:</strong> {stageEstimation.stageDetails.caregiving}</p>
+            </div>
+          )}
           
           <h3 style={{ fontSize: '15px', marginBottom: '10px' }}>Instrumental Activities of Daily Living (IADLs)</h3>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', marginBottom: '20px' }}>
@@ -1144,6 +1364,12 @@ export default function App() {
               onClick={() => setActiveTab('adl')}
             >
               Functional Status
+            </button>
+            <button 
+              className={`tab-btn ${activeTab === 'stage' ? 'active' : ''}`}
+              onClick={() => setActiveTab('stage')}
+            >
+              Stage Estimation
             </button>
             <button 
               className={`tab-btn ${activeTab === 'report' ? 'active' : ''}`}
@@ -1508,9 +1734,9 @@ export default function App() {
             </div>
 
             {/* Stage Estimate */}
-            {Object.keys(adlData).length > 0 && (
+            {stageEstimation.totalAssessed > 0 && (
               <div className="card" style={{ padding: '16px 18px', marginBottom: '16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                   <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '13px', color: '#6B6660' }}>
                     Estimated Functional Stage:
                   </span>
@@ -1518,13 +1744,35 @@ export default function App() {
                     fontFamily: "'DM Sans', sans-serif",
                     fontSize: '14px',
                     fontWeight: '600',
-                    color: adlSummary.stage.includes('Severe') ? '#A03030' :
-                           adlSummary.stage.includes('Moderate') ? '#B87333' :
-                           adlSummary.stage.includes('Mild') ? '#7B6B8D' : '#3D7A5A'
+                    color: stageEstimation.stage === 'severe' ? '#A03030' :
+                           stageEstimation.stage === 'moderate' ? '#B87333' :
+                           stageEstimation.stage === 'mild' ? '#7B6B8D' : '#3D7A5A'
                   }}>
-                    {adlSummary.stage}
+                    {stageEstimation.stageLabel}
                   </span>
+                  {stageEstimation.confidence && stageEstimation.stage !== 'unknown' && (
+                    <span style={{
+                      fontFamily: "'DM Sans', sans-serif",
+                      fontSize: '11px',
+                      padding: '2px 8px',
+                      borderRadius: '10px',
+                      background: stageEstimation.confidence === 'high' ? '#E8F5E9' : 
+                                  stageEstimation.confidence === 'moderate' ? '#FFF8E1' : '#FFEBEE',
+                      color: stageEstimation.confidence === 'high' ? '#2E7D32' : 
+                             stageEstimation.confidence === 'moderate' ? '#F57F17' : '#C62828'
+                    }}>
+                      {stageEstimation.confidence} confidence
+                    </span>
+                  )}
                 </div>
+                <p style={{ 
+                  fontFamily: "'DM Sans', sans-serif", 
+                  fontSize: '12px', 
+                  color: '#8B8680', 
+                  margin: '8px 0 0 0'
+                }}>
+                  View the <strong>Stage Estimation</strong> tab for detailed expectations
+                </p>
               </div>
             )}
 
