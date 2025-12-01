@@ -1462,6 +1462,136 @@ export default function App() {
               </div>
             )}
 
+            {/* Dementia Subtype Information Tiles */}
+            <div className="card" style={{ padding: '18px', marginBottom: '16px' }}>
+              <h3 style={{
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: '12px',
+                color: '#6B6660',
+                margin: '0 0 14px 0',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                fontWeight: '600'
+              }}>
+                Dementia Subtypes Reference
+              </h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
+                {Object.entries(dementiaTypes).map(([key, type]) => {
+                  const typeScore = scores[key];
+                  const isTopMatch = sortedTypes[0] === key && typeScore?.discriminating > 0;
+                  return (
+                    <div 
+                      key={key}
+                      style={{
+                        padding: '14px 16px',
+                        borderRadius: '8px',
+                        border: isTopMatch ? `2px solid ${type.color}` : '1px solid #E8E5E0',
+                        background: isTopMatch ? `${type.color}08` : '#FAFAF9',
+                        position: 'relative'
+                      }}
+                    >
+                      {isTopMatch && (
+                        <span style={{
+                          position: 'absolute',
+                          top: '-8px',
+                          right: '12px',
+                          background: type.color,
+                          color: 'white',
+                          fontSize: '10px',
+                          fontFamily: "'DM Sans', sans-serif",
+                          fontWeight: '600',
+                          padding: '2px 8px',
+                          borderRadius: '10px'
+                        }}>
+                          TOP MATCH
+                        </span>
+                      )}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                        <div style={{
+                          width: '12px',
+                          height: '12px',
+                          borderRadius: '3px',
+                          background: type.color,
+                          flexShrink: 0
+                        }} />
+                        <h4 style={{ 
+                          fontSize: '15px', 
+                          fontWeight: '600', 
+                          color: '#2D2A26', 
+                          margin: 0 
+                        }}>
+                          {type.name}
+                        </h4>
+                        <span style={{
+                          fontFamily: "'DM Sans', sans-serif",
+                          fontSize: '11px',
+                          color: '#8B8680',
+                          marginLeft: 'auto'
+                        }}>
+                          {type.shortName}
+                        </span>
+                      </div>
+                      <p style={{
+                        fontFamily: "'DM Sans', sans-serif",
+                        fontSize: '12px',
+                        color: '#6B6660',
+                        margin: '0 0 10px 0',
+                        lineHeight: '1.4'
+                      }}>
+                        {type.description}
+                      </p>
+                      <div style={{
+                        padding: '10px 12px',
+                        background: 'white',
+                        borderRadius: '6px',
+                        borderLeft: `3px solid ${type.color}`
+                      }}>
+                        <p style={{
+                          fontFamily: "'DM Sans', sans-serif",
+                          fontSize: '11px',
+                          fontWeight: '600',
+                          color: type.color,
+                          margin: '0 0 4px 0',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.3px'
+                        }}>
+                          Key Distinguishing Feature
+                        </p>
+                        <p style={{
+                          fontFamily: "'DM Sans', sans-serif",
+                          fontSize: '12px',
+                          color: '#4A4744',
+                          margin: 0,
+                          lineHeight: '1.4'
+                        }}>
+                          {type.keyFeature}
+                        </p>
+                      </div>
+                      {typeScore && typeScore.total > 0 && (
+                        <div style={{
+                          marginTop: '10px',
+                          paddingTop: '10px',
+                          borderTop: '1px solid #E8E5E0'
+                        }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '11px', color: '#8B8680' }}>
+                              Your matches:
+                            </span>
+                            <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '12px', fontWeight: '600', color: type.color }}>
+                              {typeScore.discriminating}/{typeScore.maxDiscriminating} key • {typeScore.total}/{typeScore.maxTotal} total
+                            </span>
+                          </div>
+                          <div className="score-bar" style={{ marginTop: '6px' }}>
+                            <div className="score-fill" style={{ width: `${typeScore.discriminatingPercentage}%`, background: type.color }} />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* Symptom Categories */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {categories.map(category => {
