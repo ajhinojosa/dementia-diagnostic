@@ -1,552 +1,22 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 
+import { dementiaTypes, typeKeys, EVIDENCE_LABELS } from './data/dementiaTypes.js';
+import { globalSymptoms, quickSymptoms, categories as allCategories } from './data/symptoms.js';
+import { ITEM_KINDS, MODIFIER_DEFS, getModifiersForKind, modifierLabel } from './data/itemKinds.js';
+import { redFlags, quickRedFlags, RED_FLAG_URGENCY } from './data/redFlags.js';
+import {
+  computeScores,
+  rankTypes,
+  assessConfidence,
+  activeSafetyFlags,
+  unexploredCategories,
+} from './scoring.js';
+import { loadSavedData, STORAGE_KEY, SCHEMA_VERSION } from './migrate.js';
+
 // ============================================
-// DATA DEFINITIONS
+// LOCAL DATA (functional assessment + staging)
 // ============================================
 
-const globalSymptoms = [
-  // MEMORY & COGNITION
-  {
-    id: "mem1",
-    category: "Memory & Learning",
-    text: "Forgets recent conversations within hours or asks the same questions repeatedly",
-    types: ["alzheimers"],
-    evidence: "NIA-AA diagnostic criteria; Alzheimer's Association 10 Warning Signs",
-    discriminating: true
-  },
-  {
-    id: "mem2",
-    category: "Memory & Learning",
-    text: "Misplaces items in unusual locations (e.g., keys in freezer, wallet in oven)",
-    types: ["alzheimers"],
-    evidence: "NIA-AA criteria; highly specific for AD pattern",
-    discriminating: false
-  },
-  {
-    id: "mem3",
-    category: "Memory & Learning",
-    text: "Gets lost in familiar places (own neighborhood, route to regular destinations)",
-    types: ["alzheimers"],
-    evidence: "NIA-AA criteria; spatial disorientation typical of AD",
-    discriminating: true
-  },
-  {
-    id: "mem4",
-    category: "Memory & Learning",
-    text: "Memory problems came on suddenly or worsened in noticeable 'steps' rather than gradually",
-    types: ["vascular"],
-    evidence: "NINDS-AIREN criteria; step-wise decline is classic vascular pattern",
-    discriminating: true
-  },
-  {
-    id: "mem5",
-    category: "Memory & Learning",
-    text: "Attention and alertness fluctuate dramatically - 'good hours and bad hours' within the same day",
-    types: ["lewy"],
-    evidence: "DLB Consortium 4th consensus (2017) - core clinical feature; occurs in ~80% of DLB",
-    discriminating: true
-  },
-  {
-    id: "mem6",
-    category: "Memory & Learning",
-    text: "Stares blankly into space for periods of time or seems completely 'zoned out'",
-    types: ["lewy"],
-    evidence: "DLB Consortium - fluctuating cognition/attention",
-    discriminating: true
-  },
-  {
-    id: "mem7",
-    category: "Memory & Learning",
-    text: "Cannot learn new information even with repetition and reminders",
-    types: ["alzheimers"],
-    evidence: "NIA-AA 2018 Framework - impaired ability to acquire and retain new information is core AD criterion",
-    discriminating: true
-  },
-  {
-    id: "mem8",
-    category: "Memory & Learning",
-    text: "Difficulty sustaining attention on complex tasks - easily distracted, loses train of thought",
-    types: ["vascular"],
-    evidence: "NINDS-AIREN criteria; attention/executive dysfunction often more prominent than memory in vascular dementia",
-    discriminating: true
-  },
-
-  // EXECUTIVE FUNCTION & PLANNING
-  {
-    id: "exec1",
-    category: "Planning & Problem-Solving",
-    text: "Difficulty managing finances, paying bills, or following multi-step instructions",
-    types: ["alzheimers", "vascular", "mixed"],
-    evidence: "NIA-AA criteria (AD); executive dysfunction prominent early in vascular dementia; common in mixed",
-    discriminating: false
-  },
-  {
-    id: "exec2",
-    category: "Planning & Problem-Solving",
-    text: "Trouble organizing, planning ahead, or sequencing tasks (e.g., following a recipe)",
-    types: ["alzheimers", "vascular", "ftd", "mixed"],
-    evidence: "Common across types; dysexecutive profile is one of 6 bvFTD diagnostic features; prominent in mixed",
-    discriminating: false
-  },
-  {
-    id: "exec3",
-    category: "Planning & Problem-Solving",
-    text: "Mental processing seems notably slower - takes much longer to respond or complete tasks",
-    types: ["vascular"],
-    evidence: "Subcortical vascular dementia profile; PMC research on psychomotor slowing",
-    discriminating: true
-  },
-  {
-    id: "exec4",
-    category: "Planning & Problem-Solving",
-    text: "Problems with visuospatial tasks (judging distances, reading clocks, assembling objects)",
-    types: ["alzheimers", "lewy"],
-    evidence: "NIA-AA (AD); DLB Consortium - visuospatial deficits MORE PROMINENT and EARLIER in DLB than AD",
-    discriminating: true
-  },
-
-  // BEHAVIOR & PERSONALITY
-  {
-    id: "beh1",
-    category: "Behavior & Personality",
-    text: "Major personality change - seems like a different person than before",
-    types: ["ftd"],
-    evidence: "International bvFTD Criteria Consortium; personality change typically precedes memory loss",
-    discriminating: true
-  },
-  {
-    id: "beh2",
-    category: "Behavior & Personality",
-    text: "Makes inappropriate comments, jokes, or sexual remarks in social situations",
-    types: ["ftd"],
-    evidence: "bvFTD criteria - disinhibition is 1 of 6 core features; 76% of autopsy-confirmed bvFTD",
-    discriminating: true
-  },
-  {
-    id: "beh3",
-    category: "Behavior & Personality",
-    text: "Seems to have lost empathy - doesn't respond to others' emotions or needs",
-    types: ["ftd"],
-    evidence: "International bvFTD Criteria - loss of sympathy/empathy is core diagnostic feature",
-    discriminating: true
-  },
-  {
-    id: "beh4",
-    category: "Behavior & Personality",
-    text: "Engages in compulsive, ritualistic, or repetitive behaviors (fixed routines, hoarding)",
-    types: ["ftd"],
-    evidence: "bvFTD criteria - perseverative/stereotyped behaviors",
-    discriminating: true
-  },
-  {
-    id: "beh5",
-    category: "Behavior & Personality",
-    text: "Shows profound apathy - loss of initiative, motivation, and interest in previous activities",
-    types: ["ftd", "vascular", "mixed"],
-    evidence: "Core bvFTD feature; apathy early in vascular dementia vs. later in AD; common in mixed presentations",
-    discriminating: false
-  },
-  {
-    id: "beh6",
-    category: "Behavior & Personality",
-    text: "Has made impulsive financial decisions, fallen for scams, or shown poor judgment with money",
-    types: ["ftd", "alzheimers"],
-    evidence: "UCSF Memory Center - common in bvFTD; NIA-AA - judgment changes in AD",
-    discriminating: false
-  },
-  {
-    id: "beh7",
-    category: "Behavior & Personality",
-    text: "Neglects personal hygiene or grooming (stopped bathing, wearing dirty clothes)",
-    types: ["ftd"],
-    evidence: "bvFTD diagnostic criteria; often early sign before memory changes",
-    discriminating: false
-  },
-
-  // HALLUCINATIONS & PERCEPTIONS
-  {
-    id: "hall1",
-    category: "Hallucinations & Perceptions",
-    text: "Sees people, animals, or objects that aren't there (detailed, well-formed visual hallucinations)",
-    types: ["lewy"],
-    evidence: "DLB Consortium - core feature; occurs in 80% of DLB, usually early in disease",
-    discriminating: true
-  },
-  {
-    id: "hall2",
-    category: "Hallucinations & Perceptions",
-    text: "Reports seeing deceased relatives or strangers in the home",
-    types: ["lewy"],
-    evidence: "DLB Consortium; visual hallucinations typically well-formed and recurrent",
-    discriminating: true
-  },
-  {
-    id: "hall3",
-    category: "Hallucinations & Perceptions",
-    text: "Misidentifies familiar people or becomes paranoid/suspicious",
-    types: ["alzheimers", "lewy"],
-    evidence: "Capgras syndrome more common in DLB; delusions occur in 20-40% of AD",
-    discriminating: false
-  },
-
-  // MOVEMENT & PHYSICAL
-  {
-    id: "mov1",
-    category: "Movement & Physical",
-    text: "Shuffling walk, difficulty starting to walk, or freezing mid-step",
-    types: ["lewy", "vascular"],
-    evidence: "DLB Consortium - parkinsonism is core feature; gait problems in vascular dementia",
-    discriminating: true
-  },
-  {
-    id: "mov2",
-    category: "Movement & Physical",
-    text: "Muscle stiffness or rigidity, especially in arms or legs",
-    types: ["lewy"],
-    evidence: "DLB Consortium - parkinsonism (rigidity, bradykinesia) is core clinical feature",
-    discriminating: true
-  },
-  {
-    id: "mov3",
-    category: "Movement & Physical",
-    text: "Tremor (shaking) at rest, particularly in hands",
-    types: ["lewy"],
-    evidence: "DLB Consortium - parkinsonian features",
-    discriminating: false
-  },
-  {
-    id: "mov4",
-    category: "Movement & Physical",
-    text: "Frequent falls or balance problems",
-    types: ["lewy", "vascular", "mixed"],
-    evidence: "DLB Consortium - falls common; gait/balance deficits in subcortical vascular dementia; common in mixed with vascular component",
-    discriminating: false
-  },
-  {
-    id: "mov5",
-    category: "Movement & Physical",
-    text: "Facial expression appears flat or 'masked' (reduced emotional expression)",
-    types: ["lewy"],
-    evidence: "DLB Consortium - hypomimia/masked facies part of parkinsonism features",
-    discriminating: false
-  },
-  {
-    id: "mov6",
-    category: "Movement & Physical",
-    text: "History of stroke, TIA (mini-stroke), or known cardiovascular disease",
-    types: ["vascular"],
-    evidence: "NINDS-AIREN criteria; major risk factor; stroke increases dementia risk 70-120%",
-    discriminating: true
-  },
-  {
-    id: "mov7",
-    category: "Movement & Physical",
-    text: "History of radiation therapy to the head or brain (for cancer or other conditions)",
-    types: ["vascular"],
-    evidence: "PMC research - cranial radiation causes white matter damage (leukoencephalopathy) with vascular dementia-like cognitive pattern; dose-dependent cognitive effects",
-    discriminating: true
-  },
-
-  // SLEEP
-  {
-    id: "sleep1",
-    category: "Sleep & Arousal",
-    text: "Acts out dreams during sleep - punching, kicking, yelling, or falling out of bed",
-    types: ["lewy"],
-    evidence: "DLB Consortium (2017) - REM sleep behavior disorder is core feature",
-    discriminating: true
-  },
-  {
-    id: "sleep2",
-    category: "Sleep & Arousal",
-    text: "Talks, shouts, or makes sounds during sleep",
-    types: ["lewy"],
-    evidence: "NINDS/NIA - RBD manifestation; dream enactment behavior",
-    discriminating: true
-  },
-  {
-    id: "sleep3",
-    category: "Sleep & Arousal",
-    text: "Excessive daytime sleepiness - naps frequently or dozes off during activities",
-    types: ["lewy"],
-    evidence: "PMC systematic review - EDS occurs in ~80% of DLB patients",
-    discriminating: true
-  },
-  {
-    id: "sleep4",
-    category: "Sleep & Arousal",
-    text: "Sleep-wake cycle is disrupted - active at night, sleepy during day",
-    types: ["alzheimers", "lewy"],
-    evidence: "NIA - sundowning common in AD; circadian dysfunction in LBD",
-    discriminating: false
-  },
-
-  // EATING & ORAL BEHAVIORS
-  {
-    id: "eat1",
-    category: "Eating & Oral Behaviors",
-    text: "Developed strong cravings for sweets or carbohydrates",
-    types: ["ftd"],
-    evidence: "J Neurol Neurosurg Psychiatry - sweet preference highly specific for FTD vs AD",
-    discriminating: true
-  },
-  {
-    id: "eat2",
-    category: "Eating & Oral Behaviors",
-    text: "Overeats, eats rapidly, or stuffs food in mouth (food cramming)",
-    types: ["ftd"],
-    evidence: "Bathgate et al. - food cramming discriminates FTD from other dementias",
-    discriminating: true
-  },
-  {
-    id: "eat3",
-    category: "Eating & Oral Behaviors",
-    text: "Fixated on specific foods or developed rigid 'food fads'",
-    types: ["ftd"],
-    evidence: "UCSF Memory Center; hyperorality is 1 of 6 core bvFTD diagnostic criteria",
-    discriminating: true
-  },
-  {
-    id: "eat4",
-    category: "Eating & Oral Behaviors",
-    text: "Puts non-food items in mouth or increased smoking/alcohol use",
-    types: ["ftd"],
-    evidence: "Cambridge Behavioral Inventory - oral behaviors domain",
-    discriminating: false
-  },
-
-  // LANGUAGE & COMMUNICATION
-  {
-    id: "lang1",
-    category: "Language & Communication",
-    text: "Trouble finding the right words - uses vague terms or talks around the word",
-    types: ["alzheimers", "ftd"],
-    evidence: "NIA-AA criteria (AD); language variant FTD presents with word-finding difficulty",
-    discriminating: false
-  },
-  {
-    id: "lang2",
-    category: "Language & Communication",
-    text: "Speech has become slow, halting, or effortful",
-    types: ["ftd"],
-    evidence: "Non-fluent variant PPA criteria; progressive speech output difficulty",
-    discriminating: true
-  },
-  {
-    id: "lang3",
-    category: "Language & Communication",
-    text: "Loses understanding of word meanings - asks 'What is a [common word]?'",
-    types: ["ftd"],
-    evidence: "Semantic dementia (svPPA) - loss of conceptual knowledge",
-    discriminating: true
-  },
-  {
-    id: "lang4",
-    category: "Language & Communication",
-    text: "Withdraws from conversations or social activities",
-    types: ["alzheimers", "ftd"],
-    evidence: "Alzheimer's Association warning sign; social withdrawal in both AD and FTD",
-    discriminating: false
-  },
-
-  // AUTONOMIC & OTHER
-  {
-    id: "auto1",
-    category: "Autonomic & Other",
-    text: "Fainting episodes, dizziness when standing, or blood pressure fluctuations",
-    types: ["lewy"],
-    evidence: "DLB Consortium - autonomic dysfunction is supportive feature",
-    discriminating: false
-  },
-  {
-    id: "auto2",
-    category: "Autonomic & Other",
-    text: "New or worsening urinary incontinence (not explained by other conditions)",
-    types: ["vascular", "mixed"],
-    evidence: "Subcortical vascular dementia clinical features; frontal circuit involvement; common in mixed with vascular",
-    discriminating: false
-  },
-  {
-    id: "auto3",
-    category: "Autonomic & Other",
-    text: "Constipation or other bowel changes (not explained by medications)",
-    types: ["lewy"],
-    evidence: "DLB Consortium - autonomic symptoms; may precede cognitive symptoms",
-    discriminating: false
-  },
-  {
-    id: "auto4",
-    category: "Autonomic & Other",
-    text: "Loss of sense of smell (before or around time of other symptoms)",
-    types: ["lewy"],
-    evidence: "NIA - hyposmia is LBD risk factor; part of prodromal syndrome",
-    discriminating: false
-  },
-  {
-    id: "auto5",
-    category: "Autonomic & Other",
-    text: "Had severe or unusual reaction to antipsychotic medications (extreme sedation, rigidity, worsening)",
-    types: ["lewy"],
-    evidence: "DLB Consortium 2017 - neuroleptic sensitivity is INDICATIVE BIOMARKER; up to 50% of DLB patients have severe reactions",
-    discriminating: true
-  },
-
-  // ONSET & PROGRESSION
-  {
-    id: "onset1",
-    category: "Onset & Progression",
-    text: "Symptoms began before age 65",
-    types: ["ftd"],
-    evidence: "FTD is most common cause of dementia under 65; mean onset age 54",
-    discriminating: true
-  },
-  {
-    id: "onset2",
-    category: "Onset & Progression",
-    text: "Symptoms have progressed very gradually over years",
-    types: ["alzheimers"],
-    evidence: "NIA-AA - insidious onset and gradual progression characteristic of AD",
-    discriminating: true
-  },
-  {
-    id: "onset3",
-    category: "Onset & Progression",
-    text: "Progression seems faster than typical (decline over months rather than years)",
-    types: ["lewy", "vascular", "mixed"],
-    evidence: "DLB often more rapid than AD; vascular events cause acute declines; mixed pathology accelerates decline",
-    discriminating: false
-  },
-  {
-    id: "onset4",
-    category: "Onset & Progression",
-    text: "Behavior or personality changes appeared BEFORE memory problems",
-    types: ["ftd"],
-    evidence: "bvFTD diagnostic criteria - behavioral symptoms precede memory impairment",
-    discriminating: true
-  },
-
-  // MIXED DEMENTIA INDICATORS
-  {
-    id: "mixed1",
-    category: "Mixed Dementia Indicators",
-    text: "Has BOTH gradual memory decline AND sudden worsening episodes (combines both patterns)",
-    types: ["mixed"],
-    evidence: "Alzheimer's Association; Neurology 2007 - mixed pathology shows both AD gradual + vascular stepwise patterns",
-    discriminating: true
-  },
-  {
-    id: "mixed2",
-    category: "Mixed Dementia Indicators",
-    text: "Memory problems AND executive dysfunction (planning, organizing) both appeared prominently and early",
-    types: ["mixed"],
-    evidence: "Neurology 2014 - combined amnestic + dysexecutive profile suggests AD + vascular pathology",
-    discriminating: true
-  },
-  {
-    id: "mixed3",
-    category: "Mixed Dementia Indicators",
-    text: "Has multiple cardiovascular risk factors (high blood pressure, diabetes, high cholesterol, heart disease) AND typical memory symptoms",
-    types: ["mixed", "vascular"],
-    evidence: "Lancet Neurology 2019; Alzheimer's Association - vascular risk factors + AD symptoms suggest mixed etiology",
-    discriminating: true
-  },
-  {
-    id: "mixed4",
-    category: "Mixed Dementia Indicators",
-    text: "Decline is noticeably faster than expected for someone with Alzheimer's alone",
-    types: ["mixed"],
-    evidence: "JAMA Neurology 2015 - autopsy studies show mixed pathology accelerates cognitive decline vs. AD alone",
-    discriminating: true
-  },
-  {
-    id: "mixed5",
-    category: "Mixed Dementia Indicators",
-    text: "Shows features of multiple dementia types simultaneously (e.g., AD-like memory loss + vascular-like attention problems + movement symptoms)",
-    types: ["mixed"],
-    evidence: "Alzheimer's Research UK; Nat Rev Neurol 2016 - overlapping symptom domains suggest multiple pathologies",
-    discriminating: true
-  },
-  {
-    id: "mixed6",
-    category: "Mixed Dementia Indicators",
-    text: "Has history of stroke or TIA AND also shows gradual progressive memory decline typical of Alzheimer's",
-    types: ["mixed"],
-    evidence: "NINDS-AIREN + NIA-AA combined criteria; vascular history + AD progression pattern = mixed dementia",
-    discriminating: true
-  },
-  {
-    id: "mixed7",
-    category: "Mixed Dementia Indicators",
-    text: "Brain imaging (MRI/CT) showed BOTH significant atrophy (shrinkage) AND vascular changes (white matter disease, small strokes)",
-    types: ["mixed"],
-    evidence: "Neurology 2018 - neuroimaging showing combined AD + vascular pathology strongly predicts mixed dementia",
-    discriminating: true
-  },
-  {
-    id: "mixed8",
-    category: "Mixed Dementia Indicators",
-    text: "Memory problems worsened significantly after a stroke, heart surgery, or cardiac event",
-    types: ["mixed", "vascular"],
-    evidence: "JAMA 2012 - post-stroke cognitive decline often reveals underlying AD pathology; common mixed presentation",
-    discriminating: true
-  },
-  {
-    id: "mixed9",
-    category: "Mixed Dementia Indicators",
-    text: "Symptoms span multiple categories that don't fit neatly into one dementia type",
-    types: ["mixed"],
-    evidence: "Alzheimer's Association diagnostic guidelines - atypical or multi-domain presentation suggests mixed pathology",
-    discriminating: false
-  },
-  {
-    id: "mixed10",
-    category: "Mixed Dementia Indicators",
-    text: "Age 80+ with dementia symptoms (mixed pathology is most common at advanced ages)",
-    types: ["mixed"],
-    evidence: "Rush Memory & Aging Project; Lancet 2017 - autopsy studies show 50%+ of dementia in 80+ has mixed pathology",
-    discriminating: true
-  }
-];
-
-const dementiaTypes = {
-  alzheimers: {
-    name: "Alzheimer's Disease",
-    shortName: "AD",
-    color: "#5B8C6F",
-    description: "Most common form (60-80% of cases). Gradual onset with progressive memory decline.",
-    keyFeature: "Recent memory loss is earliest and most prominent symptom; personality often preserved early."
-  },
-  vascular: {
-    name: "Vascular Dementia",
-    shortName: "VaD",
-    color: "#7B6B8D",
-    description: "Second most common. Results from reduced blood flow to brain.",
-    keyFeature: "Often sudden onset or 'step-wise' decline. Executive function problems often more prominent than memory."
-  },
-  lewy: {
-    name: "Lewy Body Dementia",
-    shortName: "LBD",
-    color: "#8B7355",
-    description: "Third most common. Protein deposits affecting brain chemistry.",
-    keyFeature: "Visual hallucinations + fluctuating cognition + movement problems. CAUTION: Antipsychotic sensitivity."
-  },
-  ftd: {
-    name: "Frontotemporal Dementia",
-    shortName: "FTD",
-    color: "#B87333",
-    description: "Affects frontal/temporal lobes. Often younger onset (40s-60s).",
-    keyFeature: "Personality/behavior changes or language problems come BEFORE memory loss."
-  },
-  mixed: {
-    name: "Mixed Dementia",
-    shortName: "Mixed",
-    color: "#5F7A8C",
-    description: "Combination of types, most commonly Alzheimer's + Vascular.",
-    keyFeature: "Symptoms span multiple categories; often faster progression."
-  }
-};
-
-// IADL and Basic ADL items
 const iadlItems = [
   { id: "iadl1", text: "Managing finances (paying bills, banking)", category: "Financial" },
   { id: "iadl2", text: "Managing medications (remembering doses, refills)", category: "Health" },
@@ -567,33 +37,6 @@ const badlItems = [
   { id: "badl6", text: "Walking/mobility", category: "Mobility" }
 ];
 
-const onsetOptions = [
-  { value: "", label: "Select when noticed" },
-  { value: "1month", label: "Within last month" },
-  { value: "3months", label: "1-3 months ago" },
-  { value: "6months", label: "3-6 months ago" },
-  { value: "1year", label: "6-12 months ago" },
-  { value: "2years", label: "1-2 years ago" },
-  { value: "3years", label: "2-3 years ago" },
-  { value: "older", label: "3+ years ago" }
-];
-
-const frequencyOptions = [
-  { value: "", label: "How often?" },
-  { value: "rarely", label: "Rarely (few times/month)" },
-  { value: "sometimes", label: "Sometimes (weekly)" },
-  { value: "often", label: "Often (multiple times/week)" },
-  { value: "daily", label: "Daily" },
-  { value: "constant", label: "Constantly" }
-];
-
-const severityOptions = [
-  { value: "", label: "Severity" },
-  { value: "mild", label: "Mild" },
-  { value: "moderate", label: "Moderate" },
-  { value: "severe", label: "Severe" }
-];
-
 const adlStatusOptions = [
   { value: "", label: "Select status" },
   { value: "independent", label: "Fully independent" },
@@ -603,7 +46,6 @@ const adlStatusOptions = [
   { value: "na", label: "N/A or not assessed" }
 ];
 
-// Stage information by dementia type
 const stageInfo = {
   alzheimers: {
     mild: {
@@ -737,7 +179,29 @@ const stageInfo = {
   }
 };
 
-const categories = [...new Set(globalSymptoms.map(s => s.category))];
+// Stage descriptions were written for the original five types. The variants
+// added in the rewrite share a staging picture with their parent syndrome, so
+// they alias rather than duplicating near-identical prose.
+const stageInfoAlias = {
+  alzheimers: 'alzheimers',
+  pca: 'alzheimers',
+  late: 'alzheimers',
+  vascular: 'vascular',
+  lewy: 'lewy',
+  bvftd: 'ftd',
+  ppa: 'ftd',
+  mixed: 'mixed',
+};
+
+// A symptom is highlighted as high-value when it is a CORE diagnostic criterion
+// for at least one type. Which type(s) is shown per-tag, since the same symptom
+// can be core for one and non-specific for another.
+const coreForTypes = (symptom) =>
+  Object.entries(symptom.types).filter(([, tier]) => tier === 'core').map(([t]) => t);
+const isCoreAnywhere = (symptom) => coreForTypes(symptom).length > 0;
+
+const stageFor = (type, stage) => stageInfo[stageInfoAlias[type]]?.[stage] ?? null;
+
 
 // ============================================
 // MAIN COMPONENT
@@ -746,8 +210,11 @@ const categories = [...new Set(globalSymptoms.map(s => s.category))];
 export default function App() {
   // State for symptoms with details
   const [symptomData, setSymptomData] = useState({});
+  // Keyed by category NAME, so it can initialise from the static full list.
+  // It must NOT read the mode-derived `categories` memo, which is declared
+  // further down and would be in its temporal dead zone during first render.
   const [expandedCategories, setExpandedCategories] = useState(
-    categories.reduce((acc, cat) => ({ ...acc, [cat]: false }), { "Memory & Learning": true })
+    allCategories.reduce((acc, cat) => ({ ...acc, [cat]: false }), { "Memory & Learning": true })
   );
   
   // State for medical history
@@ -784,39 +251,57 @@ export default function App() {
   // State for ADLs
   const [adlData, setAdlData] = useState({});
   
+  // Red flag / reversible-mimic responses, kept separate from symptomData
+  // because they never feed the subtype scoring.
+  const [redFlagData, setRedFlagData] = useState({});
+
+  // 'quick' = the ~3 minute screen, 'full' = the complete checklist.
+  const [mode, setMode] = useState('quick');
+  const [modeChosen, setModeChosen] = useState(false);
+
   // State for view mode
-  const [activeTab, setActiveTab] = useState("symptoms"); // symptoms, history, adl, stage, report
+  const [activeTab, setActiveTab] = useState("symptoms"); // symptoms, flags, history, adl, stage, report
   const [showPrintView, setShowPrintView] = useState(false);
   const [showSourcesView, setShowSourcesView] = useState(false);
   const [saveStatus, setSaveStatus] = useState(""); // For save confirmation message
+  const [migrationNotice, setMigrationNotice] = useState(false);
+
+  // The item set currently in play. Everything downstream -- scoring maxima,
+  // category list, progress -- derives from this, which is what lets the quick
+  // screen score against what was actually asked rather than the full list.
+  const activeSymptoms = mode === 'quick' ? quickSymptoms : globalSymptoms;
+  const activeRedFlags = mode === 'quick' ? quickRedFlags : redFlags;
+  const categories = useMemo(
+    () => [...new Set(activeSymptoms.map((s) => s.category))],
+    [activeSymptoms]
+  );
 
   // Load saved data on mount
   useEffect(() => {
-    try {
-      const savedData = localStorage.getItem('dementiaAssessmentData');
-      if (savedData) {
-        const parsed = JSON.parse(savedData);
-        if (parsed.symptomData) setSymptomData(parsed.symptomData);
-        if (parsed.medicalHistory) setMedicalHistory(parsed.medicalHistory);
-        if (parsed.adlData) setAdlData(parsed.adlData);
-        if (parsed.expandedCategories) setExpandedCategories(parsed.expandedCategories);
-      }
-    } catch (error) {
-      console.error('Error loading saved data:', error);
-    }
+    const saved = loadSavedData();
+    if (!saved) return;
+    setSymptomData(saved.symptomData);
+    setMedicalHistory((prev) => ({ ...prev, ...saved.medicalHistory }));
+    setAdlData(saved.adlData);
+    setRedFlagData(saved.redFlagData);
+    setMode(saved.mode);
+    setModeChosen(true);
+    if (saved.migratedFrom === 1) setMigrationNotice(true);
   }, []);
 
   // Save data function
   const saveData = () => {
     try {
       const dataToSave = {
+        version: SCHEMA_VERSION,
         symptomData,
         medicalHistory,
         adlData,
-        expandedCategories,
+        redFlagData,
+        mode,
         savedAt: new Date().toISOString()
       };
-      localStorage.setItem('dementiaAssessmentData', JSON.stringify(dataToSave));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
       setSaveStatus('Saved successfully!');
       setTimeout(() => setSaveStatus(''), 3000);
     } catch (error) {
@@ -829,8 +314,9 @@ export default function App() {
   // Clear saved data function
   const clearData = () => {
     if (window.confirm('Are you sure you want to clear all saved data? This cannot be undone.')) {
-      localStorage.removeItem('dementiaAssessmentData');
+      localStorage.removeItem(STORAGE_KEY);
       setSymptomData({});
+      setRedFlagData({});
       setMedicalHistory({
         patientName: "",
         patientAge: "",
@@ -858,7 +344,7 @@ export default function App() {
       });
       setAdlData({});
       setExpandedCategories(
-        categories.reduce((acc, cat) => ({ ...acc, [cat]: false }), { "Memory & Learning": true })
+        allCategories.reduce((acc, cat) => ({ ...acc, [cat]: false }), { "Memory & Learning": true })
       );
       setSaveStatus('Data cleared');
       setTimeout(() => setSaveStatus(''), 3000);
@@ -872,10 +358,7 @@ export default function App() {
         const { [id]: removed, ...rest } = prev;
         return rest;
       }
-      return {
-        ...prev,
-        [id]: { checked: true, onset: "", frequency: "", severity: "" }
-      };
+      return { ...prev, [id]: { checked: true } };
     });
   };
 
@@ -892,49 +375,74 @@ export default function App() {
     setExpandedCategories(prev => ({ ...prev, [cat]: !prev[cat] }));
   };
 
-  // Calculate scores
-  const scores = useMemo(() => {
-    const result = {};
-    Object.keys(dementiaTypes).forEach(type => {
-      const typeSymptoms = globalSymptoms.filter(s => s.types.includes(type));
-      const discriminatingSymptoms = typeSymptoms.filter(s => s.discriminating);
-      
-      const checkedTotal = typeSymptoms.filter(s => symptomData[s.id]?.checked).length;
-      const checkedDiscriminating = discriminatingSymptoms.filter(s => symptomData[s.id]?.checked).length;
-      
-      result[type] = {
-        total: checkedTotal,
-        maxTotal: typeSymptoms.length,
-        discriminating: checkedDiscriminating,
-        maxDiscriminating: discriminatingSymptoms.length,
-        percentage: typeSymptoms.length > 0 ? (checkedTotal / typeSymptoms.length) * 100 : 0,
-        discriminatingPercentage: discriminatingSymptoms.length > 0 
-          ? (checkedDiscriminating / discriminatingSymptoms.length) * 100 : 0
-      };
-    });
-    return result;
-  }, [symptomData]);
+  // Calculate scores. All maxima come from `activeSymptoms`, so the quick
+  // screen is scored against what was actually asked rather than the full list.
+  const scores = useMemo(
+    () => computeScores(symptomData, activeSymptoms),
+    [symptomData, activeSymptoms]
+  );
 
   const hasAnyChecked = Object.values(symptomData).some(v => v?.checked);
 
-  const sortedTypes = useMemo(() => {
-    return Object.entries(scores)
-      .sort((a, b) => {
-        if (b[1].discriminating !== a[1].discriminating) {
-          return b[1].discriminating - a[1].discriminating;
-        }
-        return b[1].total - a[1].total;
-      })
-      .map(([type]) => type);
-  }, [scores]);
+  const ranking = useMemo(() => rankTypes(scores), [scores]);
+  const sortedTypes = ranking.order;
+
+  const confidence = useMemo(
+    () => assessConfidence(scores, symptomData, activeSymptoms),
+    [scores, symptomData, activeSymptoms]
+  );
+
+  const safetyFlags = useMemo(
+    () => activeSafetyFlags(symptomData, activeSymptoms, scores),
+    [symptomData, activeSymptoms, scores]
+  );
+
+  const unexplored = useMemo(
+    () => unexploredCategories(symptomData, activeSymptoms),
+    [symptomData, activeSymptoms]
+  );
+
+  // The tool only names a leading type once there is enough recorded to make
+  // the ordering mean something. Below that threshold it says so instead --
+  // the previous version would announce a "strongest pattern match" off a
+  // single checked box.
+  const leadingType =
+    ['moderate', 'clear', 'weak'].includes(confidence.level) ? ranking.withEvidence[0] : null;
+
+  // "Progress" through a checkbox list is a misleading metric: leaving a box
+  // unticked is not the same as answering "no". So rather than a fake
+  // completion percentage, the bar measures something real -- of the items that
+  // WERE selected, how many have their follow-up details filled in.
+  const checkedCount = useMemo(
+    () => activeSymptoms.filter(s => symptomData[s.id]?.checked).length,
+    [symptomData, activeSymptoms]
+  );
+
+  const detailedCount = useMemo(
+    () => activeSymptoms.filter(s => {
+      if (!symptomData[s.id]?.checked) return false;
+      const mods = getModifiersForKind(s.kind);
+      // Items with no modifiers (course/context) are complete by definition.
+      return mods.every(m => symptomData[s.id]?.[m]);
+    }).length,
+    [symptomData, activeSymptoms]
+  );
+
+  const flaggedRedFlags = useMemo(
+    () => activeRedFlags.filter(f => redFlagData[f.id] === 'yes'),
+    [redFlagData, activeRedFlags]
+  );
+
+  const toggleRedFlag = (id, value) =>
+    setRedFlagData(prev => ({ ...prev, [id]: prev[id] === value ? undefined : value }));
 
   // Get checked symptoms for report
   const checkedSymptoms = useMemo(() => {
-    return globalSymptoms.filter(s => symptomData[s.id]?.checked).map(s => ({
+    return activeSymptoms.filter(s => symptomData[s.id]?.checked).map(s => ({
       ...s,
       ...symptomData[s.id]
     }));
-  }, [symptomData]);
+  }, [symptomData, activeSymptoms]);
 
   // Calculate ADL summary and stage estimation
   const stageEstimation = useMemo(() => {
@@ -951,8 +459,10 @@ export default function App() {
     const severeBadl = badlItems.filter(item => adlData[item.id] === "dependent").length;
     
     // Count symptom severity
-    const severeSymptoms = Object.values(symptomData).filter(s => s?.checked && s?.severity === "severe").length;
-    const moderateSymptoms = Object.values(symptomData).filter(s => s?.checked && s?.severity === "moderate").length;
+    // `impact` replaced the old unanchored `severity` field. 'prevents' and
+    // 'assistance' are the two anchors that indicate genuine functional loss.
+    const severeSymptoms = Object.values(symptomData).filter(s => s?.checked && s?.impact === "prevents").length;
+    const moderateSymptoms = Object.values(symptomData).filter(s => s?.checked && s?.impact === "assistance").length;
     
     // Determine stage based on combined factors
     let stage = "unknown";
@@ -985,12 +495,12 @@ export default function App() {
     }
     
     // Get the most likely dementia type
-    const topType = sortedTypes[0] && scores[sortedTypes[0]]?.discriminating > 0 ? sortedTypes[0] : null;
+    const topType = leadingType;
     
     // Get stage-specific information if we have both stage and type
     let stageDetails = null;
-    if (stage && stage !== "unknown" && stage !== "minimal" && topType && stageInfo[topType]) {
-      stageDetails = stageInfo[topType][stage];
+    if (stage && stage !== "unknown" && stage !== "minimal" && topType) {
+      stageDetails = stageFor(topType, stage);
     }
     
     return {
@@ -1005,7 +515,7 @@ export default function App() {
       stageDetails,
       totalAssessed
     };
-  }, [adlData, symptomData, sortedTypes, scores]);
+  }, [adlData, symptomData, leadingType]);
 
   // ============================================
   // PRINT VIEW COMPONENT
@@ -1131,6 +641,34 @@ export default function App() {
           </div>
         </div>
 
+        {/* Red flags come FIRST in the printed report. If any are present they
+            matter more than the subtype comparison -- some are treatable and a
+            couple are urgent -- so burying them below a five-row score table
+            would be the wrong order for the person reading it. */}
+        {flaggedRedFlags.length > 0 && (
+          <div style={{ marginBottom: '30px', border: '2px solid #B3261E', borderRadius: '4px', padding: '14px' }}>
+            <h2 style={{ fontSize: '18px', margin: '0 0 6px 0', color: '#8C1D18' }}>
+              Flagged for clinical attention
+            </h2>
+            <p style={{ fontSize: '13px', margin: '0 0 12px 0', color: '#444' }}>
+              The carer completing this identified the following. These are possible treatable or urgent causes, and are
+              recorded separately from the subtype comparison below.
+            </p>
+            {flaggedRedFlags.map(flag => (
+              <div key={flag.id} style={{ marginBottom: '12px', paddingBottom: '12px', borderBottom: '1px solid #eee' }}>
+                <p style={{ margin: '0 0 4px 0', fontSize: '14px' }}>
+                  <strong>{flag.title}</strong>
+                  <span style={{ color: RED_FLAG_URGENCY[flag.urgency].color, fontSize: '12px', marginLeft: '8px' }}>
+                    ({RED_FLAG_URGENCY[flag.urgency].label})
+                  </span>
+                </p>
+                <p style={{ margin: '0 0 4px 0', fontSize: '13px', color: '#333' }}>{flag.text}</p>
+                <p style={{ margin: 0, fontSize: '13px', color: '#555' }}><em>{flag.means}</em></p>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Pattern Analysis */}
         <div style={{ marginBottom: '30px' }}>
           <h2 style={{ fontSize: '18px', borderBottom: '1px solid #ddd', paddingBottom: '8px', marginBottom: '15px' }}>
@@ -1141,19 +679,23 @@ export default function App() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', marginBottom: '15px' }}>
                 <thead>
                   <tr style={{ borderBottom: '2px solid #333' }}>
-                    <th style={{ textAlign: 'left', padding: '8px 4px' }}>Dementia Type</th>
-                    <th style={{ textAlign: 'center', padding: '8px 4px' }}>Discriminating Symptoms</th>
-                    <th style={{ textAlign: 'center', padding: '8px 4px' }}>Total Symptoms</th>
+                    <th style={{ textAlign: 'left', padding: '8px 4px' }}>Type</th>
+                    <th style={{ textAlign: 'center', padding: '8px 4px' }}>Profile match</th>
+                    <th style={{ textAlign: 'center', padding: '8px 4px' }}>Core criteria met</th>
+                    <th style={{ textAlign: 'center', padding: '8px 4px' }}>Observations</th>
                   </tr>
                 </thead>
                 <tbody>
                   {sortedTypes.filter(type => scores[type].total > 0).map(type => (
                     <tr key={type} style={{ borderBottom: '1px solid #ddd' }}>
-                      <td style={{ padding: '8px 4px', fontWeight: scores[type].discriminating > 0 ? '600' : '400' }}>
+                      <td style={{ padding: '8px 4px', fontWeight: leadingType === type ? '600' : '400' }}>
                         {dementiaTypes[type].name}
                       </td>
                       <td style={{ textAlign: 'center', padding: '8px 4px' }}>
-                        {scores[type].discriminating} / {scores[type].maxDiscriminating}
+                        {Math.round(scores[type].profileMatch)}%
+                      </td>
+                      <td style={{ textAlign: 'center', padding: '8px 4px' }}>
+                        {scores[type].maxCore > 0 ? `${scores[type].core} / ${scores[type].maxCore}` : '—'}
                       </td>
                       <td style={{ textAlign: 'center', padding: '8px 4px' }}>
                         {scores[type].total} / {scores[type].maxTotal}
@@ -1162,12 +704,33 @@ export default function App() {
                   ))}
                 </tbody>
               </table>
-              {sortedTypes[0] && scores[sortedTypes[0]].discriminating > 0 && (
-                <div style={{ background: '#f5f5f5', padding: '12px', borderRadius: '4px', fontSize: '14px' }}>
-                  <strong>Strongest pattern match: {dementiaTypes[sortedTypes[0]].name}</strong>
-                  <p style={{ margin: '8px 0 0 0', fontStyle: 'italic' }}>{dementiaTypes[sortedTypes[0]].keyFeature}</p>
-                </div>
-              )}
+              {/* The printed report is the document that reaches a clinician, so
+                  it must not assert a leading type more confidently than the
+                  tool itself does. The previous version named a "strongest
+                  pattern match" whenever any core criterion was met at all --
+                  including off a single observation. */}
+              <div style={{ background: '#f5f5f5', padding: '12px', borderRadius: '4px', fontSize: '14px' }}>
+                <strong>Confidence in this ordering: {confidence.label}</strong>
+                <p style={{ margin: '6px 0 0 0' }}>{confidence.reason}</p>
+                {leadingType && (
+                  <p style={{ margin: '10px 0 0 0' }}>
+                    <strong>Closest fit: {dementiaTypes[leadingType].name}.</strong>{' '}
+                    <em>{dementiaTypes[leadingType].keyFeature}</em>
+                  </p>
+                )}
+                {ranking.priorChangedOrder && (
+                  <p style={{ margin: '10px 0 0 0', fontSize: '13px' }}>
+                    Note: on symptom fit alone {dementiaTypes[ranking.topByFit].name} scored highest, but it is close
+                    enough to {dementiaTypes[ranking.withEvidence[0]].name} to be hard to separate on symptoms, and the
+                    latter is substantially more common.
+                  </p>
+                )}
+                <p style={{ margin: '10px 0 0 0', fontSize: '12px', color: '#555' }}>
+                  Profile match = weighted share of that type's defining features that are present. Non-specific
+                  findings are excluded from the denominator. This is a pattern summary compiled by a carer, not a
+                  diagnostic result.
+                </p>
+              </div>
             </div>
           ) : (
             <p style={{ fontSize: '14px', color: '#666' }}>No symptoms recorded yet.</p>
@@ -1183,11 +746,9 @@ export default function App() {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
               <thead>
                 <tr style={{ borderBottom: '2px solid #333', background: '#f9f9f9' }}>
-                  <th style={{ textAlign: 'left', padding: '8px 4px', width: '40%' }}>Symptom</th>
-                  <th style={{ textAlign: 'center', padding: '8px 4px' }}>Onset</th>
-                  <th style={{ textAlign: 'center', padding: '8px 4px' }}>Frequency</th>
-                  <th style={{ textAlign: 'center', padding: '8px 4px' }}>Severity</th>
-                  <th style={{ textAlign: 'center', padding: '8px 4px' }}>Associated Types</th>
+                  <th style={{ textAlign: 'left', padding: '8px 4px', width: '45%' }}>Observation</th>
+                  <th style={{ textAlign: 'left', padding: '8px 4px', width: '35%' }}>Details recorded</th>
+                  <th style={{ textAlign: 'center', padding: '8px 4px' }}>Points toward</th>
                 </tr>
               </thead>
               <tbody>
@@ -1197,30 +758,44 @@ export default function App() {
                   return (
                     <React.Fragment key={cat}>
                       <tr>
-                        <td colSpan={5} style={{ padding: '10px 4px 4px', fontWeight: '600', background: '#f0f0f0' }}>
+                        <td colSpan={3} style={{ padding: '10px 4px 4px', fontWeight: '600', background: '#f0f0f0' }}>
                           {cat}
                         </td>
                       </tr>
-                      {catSymptoms.map(symptom => (
-                        <tr key={symptom.id} style={{ borderBottom: '1px solid #eee' }}>
+                      {catSymptoms.map(symptom => {
+                        // Each item lists only the modifiers its kind supports,
+                        // labelled -- a fixed Onset/Frequency/Severity trio would
+                        // print three dashes for a past event and read as missing
+                        // data rather than as questions that never applied.
+                        const details = getModifiersForKind(symptom.kind)
+                          .map(key => ({ label: MODIFIER_DEFS[key].label, value: modifierLabel(key, symptom[key]) }))
+                          .filter(d => d.value);
+                        return (
+                        <tr key={symptom.id} style={{ borderBottom: '1px solid #eee', verticalAlign: 'top' }}>
                           <td style={{ padding: '6px 4px' }}>
                             {symptom.text}
-                            {symptom.discriminating && <span style={{ color: '#B87333' }}> ★</span>}
+                            {isCoreAnywhere(symptom) && <span style={{ color: '#B87333' }}> ★</span>}
                           </td>
-                          <td style={{ textAlign: 'center', padding: '6px 4px' }}>
-                            {onsetOptions.find(o => o.value === symptom.onset)?.label || "—"}
+                          <td style={{ padding: '6px 4px', fontSize: '12px' }}>
+                            {details.length > 0
+                              ? details.map(d => (
+                                  <div key={d.label}>
+                                    <span style={{ color: '#666' }}>{d.label}:</span> {d.value}
+                                  </div>
+                                ))
+                              : (getModifiersForKind(symptom.kind).length === 0
+                                  ? <span style={{ color: '#999', fontStyle: 'italic' }}>n/a for this kind of item</span>
+                                  : <span style={{ color: '#999' }}>—</span>)}
                           </td>
-                          <td style={{ textAlign: 'center', padding: '6px 4px' }}>
-                            {frequencyOptions.find(o => o.value === symptom.frequency)?.label || "—"}
-                          </td>
-                          <td style={{ textAlign: 'center', padding: '6px 4px' }}>
-                            {severityOptions.find(o => o.value === symptom.severity)?.label || "—"}
-                          </td>
-                          <td style={{ textAlign: 'center', padding: '6px 4px' }}>
-                            {symptom.types.map(t => dementiaTypes[t].shortName).join(", ")}
+                          <td style={{ textAlign: 'center', padding: '6px 4px', fontSize: '12px' }}>
+                            {Object.entries(symptom.types)
+                              .sort((a, b) => (a[1] === 'core' ? -1 : 1))
+                              .map(([t, tier]) => `${dementiaTypes[t].shortName}${tier === 'core' ? '★' : tier === 'common' ? '°' : ''}`)
+                              .join(', ')}
                           </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </React.Fragment>
                   );
                 })}
@@ -1229,7 +804,9 @@ export default function App() {
           ) : (
             <p style={{ fontSize: '14px', color: '#666' }}>No symptoms recorded.</p>
           )}
-          <p style={{ fontSize: '11px', color: '#888', marginTop: '10px' }}>★ = High-value discriminating symptom</p>
+          <p style={{ fontSize: '11px', color: '#888', marginTop: '10px' }}>
+            ★ = a core diagnostic criterion for that type &nbsp;·&nbsp; ° = occurs in that type but is not specific to it
+          </p>
         </div>
 
         {/* Functional Assessment */}
@@ -1312,7 +889,7 @@ export default function App() {
             <li style={{ marginBottom: '8px' }}>Based on these symptoms, what type(s) of dementia should we be considering?</li>
             <li style={{ marginBottom: '8px' }}>What additional testing would help clarify the diagnosis? (cognitive testing, brain imaging, blood work)</li>
             <li style={{ marginBottom: '8px' }}>Have reversible causes been ruled out? (B12 deficiency, thyroid, medication side effects, depression, UTI)</li>
-            {scores.lewy?.discriminating >= 2 && (
+            {scores.lewy?.core >= 2 && (
               <li style={{ marginBottom: '8px', fontWeight: '600' }}>
                 Given potential LBD indicators: Are there medications to avoid, particularly antipsychotics?
               </li>
@@ -1470,20 +1047,23 @@ export default function App() {
               <ul style={{ fontSize: '14px', margin: 0, paddingLeft: '20px', lineHeight: '1.6' }}>
                 <li><strong>DLB Consortium 4th Consensus Criteria (2017)</strong> - McKeith et al., Neurology - defines core and supportive features</li>
                 <li><strong>Core features:</strong> Fluctuating cognition, recurrent visual hallucinations, REM sleep behavior disorder, parkinsonism</li>
-                <li><strong>Indicative biomarker:</strong> Severe neuroleptic (antipsychotic) sensitivity - up to 50% have severe reactions</li>
-                <li><strong>Key differentiator from AD:</strong> Visuospatial deficits appear EARLIER and are MORE PROMINENT in DLB</li>
-                <li><strong>NINDS/NIA diagnostic guidelines</strong> - Additional clinical features and biomarkers</li>
+                <li><strong>Supportive clinical features:</strong> severe antipsychotic sensitivity, excessive daytime sleepiness, hyposmia, autonomic dysfunction, transient unresponsiveness</li>
+                <li><strong>Indicative biomarkers</strong> — a different and stronger category, since one alone can raise <em>possible</em> to <em>probable</em> DLB: reduced dopamine-transporter uptake on SPECT/PET (sensitivity 78%, specificity 90%), reduced MIBG cardiac scintigraphy (69% / 87%), and polysomnography-confirmed REM sleep without atonia. <strong>Antipsychotic sensitivity is not one of them</strong> — an earlier version of this tool stated that it was.</li>
+                <li><strong>Key differentiator from AD:</strong> attention, executive and visual-processing deficits are disproportionate relative to memory and naming, which tend to be less affected in DLB</li>
+                <li><strong>REM sleep behaviour disorder</strong> — present in 76% of autopsy-confirmed DLB vs 4% of non-DLB; given increased diagnostic weight in the 2017 consensus</li>
               </ul>
             </div>
 
-            <div style={{ padding: '16px', background: '#F8F7F5', borderRadius: '8px', borderLeft: `4px solid ${dementiaTypes.ftd.color}` }}>
-              <h3 style={{ fontSize: '16px', fontWeight: '600', margin: '0 0 8px 0', color: dementiaTypes.ftd.color }}>
-                Frontotemporal Dementia
+            <div style={{ padding: '16px', background: '#F8F7F5', borderRadius: '8px', borderLeft: `4px solid ${dementiaTypes.bvftd.color}` }}>
+              <h3 style={{ fontSize: '16px', fontWeight: '600', margin: '0 0 8px 0', color: dementiaTypes.bvftd.color }}>
+                Frontotemporal Dementia (behavioural) and Primary Progressive Aphasia
               </h3>
               <ul style={{ fontSize: '14px', margin: 0, paddingLeft: '20px', lineHeight: '1.6' }}>
-                <li><strong>International bvFTD Criteria Consortium (Rascovsky et al., 2011)</strong> - Brain - 6 core behavioral features</li>
-                <li><strong>Primary Progressive Aphasia criteria</strong> - Non-fluent variant (nfvPPA) and semantic variant (svPPA)</li>
-                <li><strong>UCSF Memory and Aging Center research</strong> - Behavioral and eating pattern changes</li>
+                <li><strong>Rascovsky et al. (2011), Brain</strong> — International bvFTD Criteria Consortium, developed from over 400 histopathologically confirmed FTLD cases. Reported sensitivity 76% for probable and 86% for possible bvFTD.</li>
+                <li><strong>Six bvFTD features:</strong> disinhibition; apathy or inertia; loss of sympathy or empathy; perseverative, stereotyped or compulsive behaviour; hyperorality and dietary change; dysexecutive profile with relative sparing of episodic memory. Three of six are required for <em>possible</em> bvFTD.</li>
+                <li><strong>Caveat on memory:</strong> the "relative sparing of episodic memory" criterion is increasingly challenged, as memory impairment is now recognised as common in bvFTD. This tool treats amnesia as a lean against bvFTD, not an exclusion.</li>
+                <li><strong>Gorno-Tempini et al. (2011), Neurology</strong> — PPA classification. Non-fluent/agrammatic and semantic variants are scored as their own type rather than pooled with behavioural FTD, since the two presentations need very different support.</li>
+                <li><strong>Bathgate et al. (2001)</strong> — sweet food preference, gluttony, personal neglect, loss of emotion and stereotypies were the behaviours that most strongly separated FTD from AD and vascular dementia.</li>
               </ul>
             </div>
 
@@ -1493,9 +1073,9 @@ export default function App() {
               </h3>
               <ul style={{ fontSize: '14px', margin: 0, paddingLeft: '20px', lineHeight: '1.6' }}>
                 <li><strong>Alzheimer's Association mixed dementia guidelines</strong> - Combined AD + vascular pathology recognition</li>
-                <li><strong>Rush Memory and Aging Project</strong> - Autopsy studies showing 50%+ of dementia in 80+ has mixed pathology</li>
-                <li><strong>Lancet Neurology (2017, 2019)</strong> - Epidemiological studies on mixed pathology prevalence</li>
-                <li><strong>JAMA Neurology (2015)</strong> - Accelerated decline with multiple pathologies</li>
+                <li><strong>Harmonisation of six community-based autopsy cohorts</strong> (Lancet Healthy Longevity, 2023) — 2,443 of 2,695 decedents (91%) carried more than one of six key neuropathologies, and 1,106 (41%) carried three or more. Among those with severe Alzheimer's pathology, 85% had at least one additional pathology, most often LATE (53%).</li>
+                <li><strong>Rush Memory and Aging Project / ROS-MAP</strong> — community-based clinical-pathologic cohorts establishing that mixed pathology, not pure single-pathology disease, is the norm in later life.</li>
+                <li><strong>Why "Age 80+" was removed as a scored item:</strong> at that age mixed pathology is close to universal, and a near-universal finding carries almost no power to discriminate between types. Scoring it simply added a point to Mixed for every older adult assessed.</li>
               </ul>
             </div>
           </div>
@@ -1507,16 +1087,69 @@ export default function App() {
             Methodology
           </h2>
           
-          <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '10px' }}>Discriminating vs. Non-Discriminating Symptoms</h3>
-          <p style={{ fontSize: '14px', marginBottom: '15px', lineHeight: '1.6' }}>
-            Symptoms are classified as <strong>"discriminating" (HIGH-VALUE)</strong> when they strongly suggest a specific dementia type 
-            and help differentiate it from other forms. Non-discriminating symptoms may be present across multiple dementia types.
+          <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '10px' }}>Evidence tiers (per type, not per symptom)</h3>
+          <p style={{ fontSize: '14px', marginBottom: '10px', lineHeight: '1.6' }}>
+            Each symptom is graded separately <em>for each type it relates to</em>, because the same finding can be
+            decisive for one disease and meaningless for another:
           </p>
-          
-          <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '10px' }}>Scoring Approach</h3>
+          <ul style={{ fontSize: '14px', marginBottom: '15px', paddingLeft: '20px', lineHeight: '1.6' }}>
+            <li><strong>Core criterion (★)</strong> — a formal diagnostic criterion in the published consensus criteria. Weight 3.</li>
+            <li><strong>Supportive</strong> — listed as a supportive or suggestive feature, or well replicated without being a formal criterion. Weight 2.</li>
+            <li><strong>Non-specific (°)</strong> — genuinely occurs in this type, but is too widespread across types to help tell them apart. Weight 1.</li>
+          </ul>
           <p style={{ fontSize: '14px', marginBottom: '15px', lineHeight: '1.6' }}>
-            The pattern analysis prioritizes discriminating symptoms when ranking dementia type matches. This approach is based on 
-            the principle that certain symptoms are more specific to particular dementia types and carry greater diagnostic weight.
+            An earlier version of this tool used a single <em>discriminating: true/false</em> flag per symptom, shared
+            across every type that symptom mapped to. That could not express, for example, that visuospatial impairment
+            is a core feature of dementia with Lewy bodies and posterior cortical atrophy but a late, non-specific
+            finding in typical Alzheimer's — so all three received identical credit.
+          </p>
+
+          <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '10px' }}>Scoring approach</h3>
+          <p style={{ fontSize: '14px', marginBottom: '10px', lineHeight: '1.6' }}>
+            Each type gets a <strong>profile match</strong>: the weighted share of its own defining features that are
+            present. Non-specific findings corroborate when present but are excluded from the denominator, since not
+            having them should not count against a type. Types are then ordered by profile match combined with how many
+            of their core criteria are met.
+          </p>
+          <p style={{ fontSize: '14px', marginBottom: '15px', lineHeight: '1.6' }}>
+            This replaced a ranking based on raw counts of discriminating symptoms. Because the number of such symptoms
+            differed sharply by type, that comparison was between unequal denominators, and the rarest diseases were
+            structurally favoured over the commonest ones.
+          </p>
+
+          <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '10px' }}>How prevalence is used</h3>
+          <p style={{ fontSize: '14px', marginBottom: '15px', lineHeight: '1.6' }}>
+            When two types are within 20% of each other on symptom evidence — close enough that the symptoms cannot
+            really separate them — how common each disease is decides the order, and the tool says so explicitly rather
+            than adjusting silently. Outside that band, evidence alone decides: a strong match for a rare type is never
+            demoted just for being rare. Prevalence is applied only to <em>ordering</em>, never to the profile match
+            figures shown.
+          </p>
+
+          <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '10px' }}>Counter-evidence</h3>
+          <p style={{ fontSize: '14px', marginBottom: '15px', lineHeight: '1.6' }}>
+            A few items argue <em>against</em> a type rather than for it — losing weight and appetite counts against
+            behavioural FTD, where increased intake is characteristic. These reduce that type's score and are listed
+            explicitly in the analysis, so the reasoning is visible rather than buried.
+          </p>
+
+          <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '10px' }}>Question types</h3>
+          <p style={{ fontSize: '14px', marginBottom: '15px', lineHeight: '1.6' }}>
+            Items are not all the same kind of thing, so they no longer share one set of follow-up questions. A
+            recurring symptom is asked when it started, how often it happens and what it prevents. An ongoing deficit is
+            asked about direction of travel instead of frequency, since "how often can they not learn new information"
+            has no answer. A past event is asked only when it happened. An item that already describes the course of the
+            illness is asked nothing further, because asking when you first noticed a years-long gradual decline is
+            circular. Severity options are anchored to what the person can still do, rather than an unlabelled
+            mild/moderate/severe scale that two carers would apply differently.
+          </p>
+
+          <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '10px' }}>What this tool will not do</h3>
+          <p style={{ fontSize: '14px', marginBottom: '15px', lineHeight: '1.6' }}>
+            It will not name a leading type until enough has been recorded for the ordering to mean anything, and it
+            reports when the top two are too close to separate. Several of the types listed — LATE in particular —
+            cannot be confirmed during life outside research settings. And no amount of symptom matching substitutes for
+            excluding the treatable causes covered in the Red Flags section.
           </p>
 
           <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '10px' }}>Stage Estimation</h3>
@@ -1529,15 +1162,28 @@ export default function App() {
             <li><strong>Clinical Dementia Rating (CDR)</strong> - Staging framework reference</li>
           </ul>
 
-          <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '10px' }}>Recent Evidence-Based Updates</h3>
+          <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '10px' }}>Corrections made in this revision</h3>
           <p style={{ fontSize: '14px', marginBottom: '10px', lineHeight: '1.6' }}>
-            The following refinements were made based on peer-reviewed literature review:
+            The symptom set was audited against the primary criteria papers. These items were wrong or mis-weighted and
+            have been changed:
           </p>
-          <ul style={{ fontSize: '14px', marginBottom: '15px', paddingLeft: '20px', lineHeight: '1.6' }}>
-            <li><strong>AD - Learning impairment:</strong> Added "Cannot learn new information even with repetition" per NIA-AA 2018 core criteria for episodic memory</li>
-            <li><strong>VaD - Attention dysfunction:</strong> Added "Difficulty sustaining attention on complex tasks" per NINDS-AIREN criteria emphasizing attention/executive deficits over memory in vascular dementia</li>
-            <li><strong>LBD - Antipsychotic sensitivity:</strong> Added neuroleptic sensitivity as discriminating feature per DLB Consortium 2017 indicative biomarkers (up to 50% affected)</li>
-            <li><strong>LBD - Visuospatial:</strong> Upgraded visuospatial problems to discriminating status per DLB Consortium noting they appear EARLIER and are MORE PROMINENT in DLB vs. AD</li>
+          <ul style={{ fontSize: '14px', marginBottom: '15px', paddingLeft: '20px', lineHeight: '1.7' }}>
+            <li><strong>Antipsychotic sensitivity was described as an "indicative biomarker" for DLB.</strong> It is not. DLB 2017 classifies it as a supportive clinical feature; the indicative biomarkers are reduced dopamine-transporter uptake, reduced MIBG cardiac scintigraphy, and polysomnography-confirmed REM sleep without atonia. Its score was reduced, but the safety warning was kept prominent — the clinical risk is unchanged.</li>
+            <li><strong>"FTD is the most common cause of dementia under 65" was stated as fact.</strong> It is not correct. Alzheimer's disease is the most common cause of young-onset dementia (roughly 40–50%); per 100,000 people aged 30–64 the estimates are approximately AD 41, vascular 15, FTD 2. Onset before 65 now raises the likelihood of bvFTD, PPA and PCA relative to their own base rates, without implying they overtake AD.</li>
+            <li><strong>Stroke/TIA and "known cardiovascular disease" shared one checkbox.</strong> A documented stroke with decline persisting beyond three months is a VASCOG diagnostic criterion; treated hypertension is a risk factor. They are now separate items, and the cardiovascular risk factors are collected once in Medical History instead of also being scored here.</li>
+            <li><strong>Excessive daytime sleepiness was weighted as a key DLB discriminator.</strong> DLB 2017 lists it as supportive. Downgraded.</li>
+            <li><strong>Early urinary symptoms were weighted as non-discriminating for vascular disease.</strong> VASCOG 2014 criterion A2b lists early urinary frequency and urgency as a formal supporting criterion alongside gait disturbance. Upgraded, with "early" made explicit — late incontinence is universal and carries no information.</li>
+            <li><strong>Cranial radiation was listed as a vascular dementia indicator.</strong> Radiation-induced leukoencephalopathy is a distinct cause that produces a similar subcortical white-matter picture through shared endothelial injury. Kept alongside the vascular profile, but relabelled so it is not mistaken for the same diagnosis.</li>
+            <li><strong>Five of the ten Mixed Dementia items double-counted.</strong> "Stroke or TIA AND gradual decline" was simply two other items combined; "multiple cardiovascular risk factors" duplicated Medical History. "Age 80+" was removed because mixed pathology past 80 is near-universal and therefore carries almost no discriminating power.</li>
+            <li><strong>Stepwise decline was the main route to a vascular result.</strong> VASCOG explicitly notes that small-vessel disease often produces gradual onset and slow progression, so absence of stepwise decline does not rule vascular disease out. Physical stroke signs and the gait/urinary criteria are now scored in their own right.</li>
+          </ul>
+
+          <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '10px' }}>Types added</h3>
+          <ul style={{ fontSize: '14px', marginBottom: '15px', paddingLeft: '20px', lineHeight: '1.7' }}>
+            <li><strong>Primary Progressive Aphasia</strong> split out from behavioural FTD (Gorno-Tempini et al., 2011). A language-led presentation previously scored as behavioural FTD.</li>
+            <li><strong>Posterior cortical atrophy</strong> (Crutch et al., 2017) — the visual-led Alzheimer's variant. Visuospatial complaints previously had nowhere accurate to land.</li>
+            <li><strong>LATE</strong> (Nelson et al., Brain 2019) — an amnestic syndrome of the oldest old found in roughly 40% of brains past 85, which previously scored silently as Alzheimer's.</li>
+            <li><strong>Reversible mimics and red flags</strong> — delirium, depression, normal pressure hydrocephalus, medication burden, B12 and thyroid deficiency, alcohol, head injury, sleep apnoea. These were entirely absent, despite being the one category where the answer changes treatment.</li>
           </ul>
         </div>
 
@@ -1557,7 +1203,7 @@ export default function App() {
                   <tr style={{ background: '#F8F7F5', borderBottom: '2px solid #ddd' }}>
                     <th style={{ textAlign: 'left', padding: '10px 8px', width: '35%' }}>Symptom</th>
                     <th style={{ textAlign: 'center', padding: '10px 8px', width: '15%' }}>Types</th>
-                    <th style={{ textAlign: 'center', padding: '10px 8px', width: '10%' }}>Key?</th>
+                    <th style={{ textAlign: 'center', padding: '10px 8px', width: '10%' }}>Core?</th>
                     <th style={{ textAlign: 'left', padding: '10px 8px', width: '40%' }}>Evidence Source</th>
                   </tr>
                 </thead>
@@ -1569,23 +1215,25 @@ export default function App() {
                       </td>
                       <td style={{ textAlign: 'center', padding: '10px 8px', verticalAlign: 'top' }}>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', justifyContent: 'center' }}>
-                          {symptom.types.map(t => (
-                            <span key={t} style={{
+                          {Object.entries(symptom.types).map(([t, tier]) => (
+                            <span key={t} title={EVIDENCE_LABELS[tier]} style={{
                               padding: '2px 6px',
                               background: `${dementiaTypes[t].color}20`,
                               color: dementiaTypes[t].color,
                               borderRadius: '4px',
                               fontSize: '10px',
                               fontWeight: '600',
-                              fontFamily: "'DM Sans', sans-serif"
+                              fontFamily: "'DM Sans', sans-serif",
+                              opacity: tier === 'common' ? 0.6 : 1
                             }}>
                               {dementiaTypes[t].shortName}
+                              {tier === 'core' ? '★' : tier === 'common' ? '°' : ''}
                             </span>
                           ))}
                         </div>
                       </td>
                       <td style={{ textAlign: 'center', padding: '10px 8px', verticalAlign: 'top' }}>
-                        {symptom.discriminating ? (
+                        {isCoreAnywhere(symptom) ? (
                           <span style={{ color: '#B87333', fontWeight: '600' }}>★</span>
                         ) : '—'}
                       </td>
@@ -1896,6 +1544,65 @@ export default function App() {
 
       <div style={{ maxWidth: '900px', margin: '0 auto', padding: '0 16px' }}>
         
+        {/* Mode selector. The short screen exists because a 62-item checklist is
+            a real barrier for someone doing this at a kitchen table; the honest
+            trade-off is stated rather than buried. */}
+        <div className="card" style={{ padding: '16px 18px', marginBottom: '16px' }}>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '10px' }}>
+            {[
+              { key: 'quick', title: 'Quick screen', meta: `${quickSymptoms.length} questions · 2–3 min` },
+              { key: 'full', title: 'Full assessment', meta: `${globalSymptoms.length} questions · 15–25 min` },
+            ].map(opt => (
+              <button
+                key={opt.key}
+                onClick={() => { setMode(opt.key); setModeChosen(true); }}
+                style={{
+                  flex: '1 1 200px',
+                  textAlign: 'left',
+                  padding: '12px 14px',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  fontFamily: "'DM Sans', sans-serif",
+                  border: mode === opt.key ? '2px solid #3D7A5A' : '1px solid #E8E5E0',
+                  background: mode === opt.key ? '#F3F8F5' : 'white'
+                }}
+              >
+                <div style={{ fontSize: '14px', fontWeight: '600', color: mode === opt.key ? '#2C5B43' : '#4A4744' }}>
+                  {opt.title}
+                </div>
+                <div style={{ fontSize: '11px', color: '#8B8680', marginTop: '2px' }}>{opt.meta}</div>
+              </button>
+            ))}
+          </div>
+          <p style={{
+            fontFamily: "'DM Sans', sans-serif",
+            fontSize: '12px',
+            color: '#6B6660',
+            margin: 0,
+            lineHeight: '1.5'
+          }}>
+            {mode === 'quick'
+              ? `The quick screen keeps the highest-value question for each subtype and drops the rest. It will point you in a direction, but it has fewer ways to tell close alternatives apart — expect more ties and lower confidence. Nothing is lost by switching to the full assessment later; your answers carry over.`
+              : `The full assessment includes every item, including the low-specificity ones that help confirm a picture rather than distinguish it.`}
+          </p>
+        </div>
+
+        {migrationNotice && (
+          <div className="card" style={{
+            padding: '12px 16px',
+            marginBottom: '16px',
+            borderLeft: '4px solid #5F7A8C',
+            background: '#F5F8FA'
+          }}>
+            <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '12px', color: '#5C5550', margin: 0, lineHeight: '1.5' }}>
+              <strong>Your earlier answers were carried over.</strong> The questions have been revised against the
+              current diagnostic criteria, so a few items were removed and the timing/severity fields changed shape.
+              Where an old answer had no exact equivalent it was mapped to the closest new option — worth a quick
+              re-check of anything you had filled in detail.
+            </p>
+          </div>
+        )}
+
         {/* Tab Navigation */}
         <div className="card" style={{ marginBottom: '20px', overflow: 'hidden' }}>
           <div style={{ display: 'flex', borderBottom: '1px solid #F0EDE8' }}>
@@ -1904,6 +1611,23 @@ export default function App() {
               onClick={() => setActiveTab('symptoms')}
             >
               Symptoms
+            </button>
+            <button 
+              className={`tab-btn ${activeTab === 'flags' ? 'active' : ''}`}
+              onClick={() => setActiveTab('flags')}
+            >
+              Red Flags
+              {flaggedRedFlags.length > 0 && (
+                <span style={{
+                  marginLeft: '6px',
+                  background: '#B3261E',
+                  color: 'white',
+                  borderRadius: '10px',
+                  padding: '1px 6px',
+                  fontSize: '10px',
+                  fontWeight: '700'
+                }}>{flaggedRedFlags.length}</span>
+              )}
             </button>
             <button 
               className={`tab-btn ${activeTab === 'history' ? 'active' : ''}`}
@@ -1951,46 +1675,159 @@ export default function App() {
                 margin: 0,
                 lineHeight: '1.5'
               }}>
-                <strong style={{ color: '#A03030' }}>For healthcare discussions only.</strong> Check symptoms you've observed, 
-                then add timing and severity details. This helps identify patterns but cannot replace professional diagnosis.
+                <strong style={{ color: '#A03030' }}>For healthcare discussions only.</strong> Tick what you have actually
+                observed, then fill in the follow-up questions — they differ per item, because a past event, an ongoing
+                difficulty and a recurring symptom are not the same kind of thing. This organises what you have seen into
+                something a clinician can work from. It cannot diagnose, and it is not a substitute for assessment.
               </p>
             </div>
 
-            {/* Score Summary */}
+            {/* Pattern analysis.
+                Three things the previous version did not do: state how much to
+                trust the ordering, show the prevalence adjustment rather than
+                applying it silently, and surface evidence that argues AGAINST a
+                type instead of only evidence for it. */}
             {hasAnyChecked && (
               <div className="card" style={{ padding: '18px', marginBottom: '16px' }}>
-                <h3 style={{
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
+                  <h3 style={{
+                    fontFamily: "'DM Sans', sans-serif",
+                    fontSize: '12px',
+                    color: '#6B6660',
+                    margin: 0,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    fontWeight: '600'
+                  }}>
+                    Pattern Analysis
+                  </h3>
+                  <span style={{
+                    fontFamily: "'DM Sans', sans-serif",
+                    fontSize: '11px',
+                    fontWeight: '600',
+                    padding: '2px 8px',
+                    borderRadius: '10px',
+                    color: ['clear', 'moderate'].includes(confidence.level) ? '#2C5B43' : '#8B6914',
+                    background: ['clear', 'moderate'].includes(confidence.level) ? '#EDF5F0' : '#FFFBEF'
+                  }}>
+                    {confidence.label}
+                  </span>
+                </div>
+
+                <p style={{
                   fontFamily: "'DM Sans', sans-serif",
                   fontSize: '12px',
                   color: '#6B6660',
                   margin: '0 0 14px 0',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px',
-                  fontWeight: '600'
+                  lineHeight: '1.5'
                 }}>
-                  Pattern Analysis
-                </h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {confidence.reason}
+                </p>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                   {sortedTypes.filter(type => scores[type].total > 0).map(type => {
                     const score = scores[type];
                     const info = dementiaTypes[type];
+                    const isLeader = leadingType === type;
                     return (
-                      <div key={type}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <div key={type} style={{
+                        padding: isLeader ? '10px 12px' : '0',
+                        borderRadius: '8px',
+                        background: isLeader ? `${info.color}0D` : 'transparent',
+                        border: isLeader ? `1px solid ${info.color}33` : 'none'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', gap: '8px', flexWrap: 'wrap' }}>
                           <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '13px', fontWeight: '600', color: info.color }}>
                             {info.name}
+                            {isLeader && <span style={{ fontSize: '10px', marginLeft: '6px', color: '#8B8680', fontWeight: '500' }}>closest fit</span>}
                           </span>
                           <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '11px', color: '#8B8680' }}>
-                            <span style={{ color: '#B87333', fontWeight: '600' }}>{score.discriminating}/{score.maxDiscriminating}</span> key • {score.total}/{score.maxTotal} total
+                            <span style={{ fontWeight: '600', color: info.color }}>{Math.round(score.profileMatch)}%</span> profile match
+                            {score.maxCore > 0 && <> • {score.core}/{score.maxCore} core criteria</>}
                           </span>
                         </div>
                         <div className="score-bar">
-                          <div className="score-fill" style={{ width: `${score.discriminatingPercentage}%`, background: info.color }} />
+                          <div className="score-fill" style={{ width: `${score.profileMatch}%`, background: info.color }} />
                         </div>
+                        {score.counterEvidence.length > 0 && (
+                          <div style={{
+                            fontFamily: "'DM Sans', sans-serif",
+                            fontSize: '11px',
+                            color: '#A05252',
+                            marginTop: '5px',
+                            lineHeight: '1.4'
+                          }}>
+                            Counts against this: {score.counterEvidence.map(c => c.text.toLowerCase()).join('; ')}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
                 </div>
+
+                {ranking.priorChangedOrder && (
+                  <p style={{
+                    fontFamily: "'DM Sans', sans-serif",
+                    fontSize: '11px',
+                    color: '#6B6660',
+                    margin: '14px 0 0 0',
+                    paddingTop: '10px',
+                    borderTop: '1px dashed #E8E5E0',
+                    lineHeight: '1.5'
+                  }}>
+                    <strong>Ordering note:</strong> on symptom fit alone,{' '}
+                    <strong>{dementiaTypes[ranking.topByFit].name}</strong> scored highest. It has been placed below{' '}
+                    <strong>{dementiaTypes[ranking.withEvidence[0]].name}</strong> because the two are close enough to be
+                    hard to separate on symptoms, and the latter is substantially more common. Both are worth raising.
+                  </p>
+                )}
+
+                {unexplored.length > 0 && (
+                  <p style={{
+                    fontFamily: "'DM Sans', sans-serif",
+                    fontSize: '11px',
+                    color: '#8B6914',
+                    margin: '10px 0 0 0',
+                    lineHeight: '1.5'
+                  }}>
+                    Nothing recorded yet under: {unexplored.join(', ')}. An unasked question is not a "no" — these
+                    categories are currently contributing nothing either way.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Safety flags, shown regardless of ranking. */}
+            {safetyFlags.map(flag => (
+              <div key={flag.id} className="card" style={{
+                padding: '14px 18px',
+                marginBottom: '16px',
+                borderLeft: '4px solid #D4A017',
+                background: '#FFFEF5'
+              }}>
+                <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '13px', color: '#5C5550', margin: 0, lineHeight: '1.5' }}>
+                  <strong style={{ color: '#8B6914' }}>⚠️ {flag.title}: </strong>{flag.body}
+                </p>
+              </div>
+            ))}
+
+            {/* Prompt toward the reversible causes, which matter more than the
+                subtype comparison when they apply. */}
+            {hasAnyChecked && flaggedRedFlags.length === 0 && (
+              <div className="card" style={{
+                padding: '14px 18px',
+                marginBottom: '16px',
+                borderLeft: '4px solid #5F7A8C',
+                background: '#F5F8FA'
+              }}>
+                <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '13px', color: '#5C5550', margin: 0, lineHeight: '1.5' }}>
+                  <strong>Before reading anything into the ranking above,</strong> work through the{' '}
+                  <button
+                    onClick={() => setActiveTab('flags')}
+                    style={{ background: 'none', border: 'none', padding: 0, color: '#3D6B8C', textDecoration: 'underline', cursor: 'pointer', font: 'inherit' }}
+                  >Red Flags tab</button>. Some causes of confusion are treatable, and a few need urgent attention —
+                  those change what to do next far more than which subtype fits best.
+                </p>
               </div>
             )}
 
@@ -2027,11 +1864,12 @@ export default function App() {
                         };
                       };
                       
-                      // Get score percentage for each type (using discriminating percentage)
+                      // Plot the profile match -- the weighted share of that
+                      // type's defining features that are present.
                       const getScoreValue = (type) => {
                         const s = scores[type];
-                        if (!s || s.maxDiscriminating === 0) return 0;
-                        return s.discriminating / s.maxDiscriminating;
+                        if (!s) return 0;
+                        return s.profileMatch / 100;
                       };
                       
                       return (
@@ -2082,7 +1920,7 @@ export default function App() {
                           {types.map((type, i) => {
                             const value = Math.max(getScoreValue(type), 0.05);
                             const point = getPoint(i, value);
-                            const hasScore = scores[type]?.discriminating > 0;
+                            const hasScore = scores[type]?.total > 0;
                             return (
                               <circle
                                 key={`point-${type}`}
@@ -2103,7 +1941,7 @@ export default function App() {
                             const x = cx + labelRadius * Math.cos(angle);
                             const y = cy + labelRadius * Math.sin(angle);
                             const info = dementiaTypes[type];
-                            const hasScore = scores[type]?.discriminating > 0;
+                            const hasScore = scores[type]?.total > 0;
                             
                             // Adjust text anchor based on position
                             let textAnchor = 'middle';
@@ -2136,7 +1974,7 @@ export default function App() {
                                       fill: '#8B8680'
                                     }}
                                   >
-                                    {scores[type].discriminating}/{scores[type].maxDiscriminating}
+                                    {Math.round(scores[type].profileMatch)}%
                                   </text>
                                 )}
                               </g>
@@ -2160,30 +1998,14 @@ export default function App() {
                   textAlign: 'center',
                   margin: '8px 0 0 0'
                 }}>
-                  Chart shows percentage of key (discriminating) indicators matched for each subtype
+                  Each axis is that subtype's profile match — the weighted share of its defining features that are present. Non-specific findings are excluded from the denominator.
                 </p>
               </div>
             )}
 
-            {/* LBD Warning */}
-            {scores.lewy?.discriminating >= 2 && (
-              <div className="card" style={{
-                padding: '14px 18px',
-                marginBottom: '16px',
-                borderLeft: '4px solid #D4A017',
-                background: '#FFFEF5'
-              }}>
-                <p style={{
-                  fontFamily: "'DM Sans', sans-serif",
-                  fontSize: '13px',
-                  color: '#5C5550',
-                  margin: 0
-                }}>
-                  <strong style={{ color: '#8B6914' }}>⚠️ Lewy Body Dementia Indicators Detected:</strong> People with LBD can have 
-                  severe reactions to antipsychotic medications. Discuss this with the healthcare team before any such medications are prescribed.
-                </p>
-              </div>
-            )}
+            {/* The antipsychotic warning now comes from activeSafetyFlags() and
+                is rendered once, above. It also fires when a bad reaction has
+                already been recorded, not only on core-feature count. */}
 
             {/* Dementia Subtype Information Tiles */}
             <div className="card" style={{ padding: '18px', marginBottom: '16px' }}>
@@ -2201,7 +2023,7 @@ export default function App() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
                 {Object.entries(dementiaTypes).map(([key, type]) => {
                   const typeScore = scores[key];
-                  const isTopMatch = sortedTypes[0] === key && typeScore?.discriminating > 0;
+                  const isTopMatch = sortedTypes[0] === key && typeScore?.core > 0;
                   return (
                     <div 
                       key={key}
@@ -2301,11 +2123,11 @@ export default function App() {
                               Your matches:
                             </span>
                             <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '12px', fontWeight: '600', color: type.color }}>
-                              {typeScore.discriminating}/{typeScore.maxDiscriminating} key • {typeScore.total}/{typeScore.maxTotal} total
+                              {Math.round(typeScore.profileMatch)}% match{typeScore.maxCore > 0 ? ` • ${typeScore.core}/${typeScore.maxCore} core` : ''}
                             </span>
                           </div>
                           <div className="score-bar" style={{ marginTop: '6px' }}>
-                            <div className="score-fill" style={{ width: `${typeScore.discriminatingPercentage}%`, background: type.color }} />
+                            <div className="score-fill" style={{ width: `${typeScore.profileMatch}%`, background: type.color }} />
                           </div>
                         </div>
                       )}
@@ -2318,7 +2140,7 @@ export default function App() {
             {/* Symptom Categories */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {categories.map(category => {
-                const categorySymptoms = globalSymptoms.filter(s => s.category === category);
+                const categorySymptoms = activeSymptoms.filter(s => s.category === category);
                 const isExpanded = expandedCategories[category];
                 const checkedCount = categorySymptoms.filter(s => symptomData[s.id]?.checked).length;
                 
@@ -2374,67 +2196,128 @@ export default function App() {
                                     marginBottom: '6px'
                                   }}>
                                     {symptom.text}
-                                    {symptom.discriminating && (
+                                    {isCoreAnywhere(symptom) && (
                                       <span style={{ marginLeft: '8px', color: '#B87333', fontSize: '10px', fontWeight: '600' }}>
                                         HIGH-VALUE
                                       </span>
                                     )}
                                   </div>
-                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                                    {symptom.types.map(type => (
-                                      <span key={type} className="type-tag" style={{
-                                        background: `${dementiaTypes[type].color}15`,
-                                        color: dementiaTypes[type].color
-                                      }}>
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+                                    {Object.entries(symptom.types).map(([type, tier]) => (
+                                      <span
+                                        key={type}
+                                        className="type-tag"
+                                        title={`${dementiaTypes[type].name} — ${EVIDENCE_LABELS[tier]}`}
+                                        style={{
+                                          background: tier === 'core'
+                                            ? `${dementiaTypes[type].color}22`
+                                            : `${dementiaTypes[type].color}0F`,
+                                          color: dementiaTypes[type].color,
+                                          border: tier === 'core'
+                                            ? `1px solid ${dementiaTypes[type].color}55`
+                                            : '1px solid transparent',
+                                          opacity: tier === 'common' ? 0.6 : 1
+                                        }}
+                                      >
                                         {dementiaTypes[type].shortName}
+                                        {tier === 'core' && <span style={{ marginLeft: '3px' }}>★</span>}
                                       </span>
                                     ))}
+                                    <span style={{
+                                      fontFamily: "'DM Sans', sans-serif",
+                                      fontSize: '10px',
+                                      color: '#A8A4A0',
+                                      marginLeft: '2px'
+                                    }}>
+                                      {ITEM_KINDS[symptom.kind].label}
+                                    </span>
                                   </div>
                                 </div>
                               </div>
-                              
-                              {/* Detail Selects - shown when checked */}
-                              {isChecked && (
+
+                              {/* Kind-specific detail fields.
+                                  Each item declares what kind of thing it is, and
+                                  only the modifiers that can be answered sensibly
+                                  are rendered. A past event is asked when it
+                                  happened and nothing else; an ongoing deficit is
+                                  asked about direction of travel rather than "how
+                                  often"; an item that already describes the course
+                                  of the illness is asked nothing at all. */}
+                              {isChecked && getModifiersForKind(symptom.kind).length > 0 && (
                                 <div style={{
                                   display: 'flex',
                                   flexWrap: 'wrap',
-                                  gap: '10px',
+                                  gap: '14px',
                                   marginTop: '12px',
                                   marginLeft: '34px',
-                                  padding: '12px',
+                                  padding: '12px 14px',
                                   background: '#F8F7F5',
                                   borderRadius: '8px'
                                 }}>
-                                  <select
-                                    className="detail-select"
-                                    value={symptomData[symptom.id]?.onset || ""}
-                                    onClick={(e) => e.stopPropagation()}
-                                    onChange={(e) => updateSymptomDetail(symptom.id, 'onset', e.target.value)}
-                                  >
-                                    {onsetOptions.map(opt => (
-                                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                    ))}
-                                  </select>
-                                  <select
-                                    className="detail-select"
-                                    value={symptomData[symptom.id]?.frequency || ""}
-                                    onClick={(e) => e.stopPropagation()}
-                                    onChange={(e) => updateSymptomDetail(symptom.id, 'frequency', e.target.value)}
-                                  >
-                                    {frequencyOptions.map(opt => (
-                                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                    ))}
-                                  </select>
-                                  <select
-                                    className="detail-select"
-                                    value={symptomData[symptom.id]?.severity || ""}
-                                    onClick={(e) => e.stopPropagation()}
-                                    onChange={(e) => updateSymptomDetail(symptom.id, 'severity', e.target.value)}
-                                  >
-                                    {severityOptions.map(opt => (
-                                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                    ))}
-                                  </select>
+                                  {getModifiersForKind(symptom.kind).map(key => {
+                                    const def = MODIFIER_DEFS[key];
+                                    const fieldId = `${symptom.id}-${key}`;
+                                    return (
+                                      <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: '160px', flex: '1 1 160px' }}>
+                                        {/* Visible label. The previous version used the
+                                            placeholder as the label, so once a value was
+                                            chosen the row read "1-2 years ago / Daily /
+                                            Moderate" with nothing saying which was which. */}
+                                        <label
+                                          htmlFor={fieldId}
+                                          style={{
+                                            fontFamily: "'DM Sans', sans-serif",
+                                            fontSize: '10px',
+                                            fontWeight: '600',
+                                            letterSpacing: '0.4px',
+                                            textTransform: 'uppercase',
+                                            color: '#8B8680'
+                                          }}
+                                        >
+                                          {def.label}
+                                        </label>
+                                        <select
+                                          id={fieldId}
+                                          className="detail-select"
+                                          value={symptomData[symptom.id]?.[key] || ''}
+                                          onClick={(e) => e.stopPropagation()}
+                                          onChange={(e) => updateSymptomDetail(symptom.id, key, e.target.value)}
+                                        >
+                                          <option value="">Select…</option>
+                                          {def.options.map(opt => (
+                                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                          ))}
+                                        </select>
+                                        <span style={{
+                                          fontFamily: "'DM Sans', sans-serif",
+                                          fontSize: '10px',
+                                          color: '#A8A4A0',
+                                          lineHeight: '1.3'
+                                        }}>
+                                          {def.help}
+                                        </span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+
+                              {/* Items that describe the course of the illness need
+                                  no follow-up questions -- asking "when did you first
+                                  notice that it has been gradual for years" is
+                                  circular. Say so rather than leaving a blank gap. */}
+                              {isChecked && getModifiersForKind(symptom.kind).length === 0 && (
+                                <div style={{
+                                  marginTop: '10px',
+                                  marginLeft: '34px',
+                                  padding: '8px 12px',
+                                  background: '#F8F7F5',
+                                  borderRadius: '8px',
+                                  fontFamily: "'DM Sans', sans-serif",
+                                  fontSize: '11px',
+                                  color: '#8B8680'
+                                }}>
+                                  {ITEM_KINDS[symptom.kind].hint}
                                 </div>
                               )}
                             </div>
@@ -2465,10 +2348,10 @@ export default function App() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flex: 1 }}>
                     <div>
                       <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '11px', color: '#8B8680', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>
-                        Categories Reviewed
+                        Categories Covered
                       </div>
                       <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '14px', fontWeight: '600', color: '#2D2A26' }}>
-                        {Object.values(expandedCategories).filter(Boolean).length} / {categories.length}
+                        {categories.length - unexplored.length} / {categories.length}
                       </div>
                     </div>
                     <div style={{ height: '30px', width: '1px', background: '#E8E5E0' }} />
@@ -2477,7 +2360,7 @@ export default function App() {
                         Symptoms Selected
                       </div>
                       <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '14px', fontWeight: '600', color: '#3D7A5A' }}>
-                        {Object.values(symptomData).filter(s => s?.checked).length}
+                        {checkedCount}
                       </div>
                     </div>
                     <div style={{ height: '30px', width: '1px', background: '#E8E5E0' }} />
@@ -2486,7 +2369,7 @@ export default function App() {
                         With Details
                       </div>
                       <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '14px', fontWeight: '600', color: '#7B6B8D' }}>
-                        {Object.values(symptomData).filter(s => s?.checked && s?.onset && s?.frequency && s?.severity).length}
+                        {detailedCount}
                       </div>
                     </div>
                   </div>
@@ -2494,13 +2377,13 @@ export default function App() {
                   {/* Progress Bar */}
                   <div style={{ flex: 1, maxWidth: '300px', minWidth: '150px' }}>
                     <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '11px', color: '#8B8680', marginBottom: '4px', display: 'flex', justifyContent: 'space-between' }}>
-                      <span>Overall Progress</span>
-                      <span>{Math.round((Object.values(expandedCategories).filter(Boolean).length / categories.length) * 100)}%</span>
+                      <span>Details filled in</span>
+                      <span>{checkedCount === 0 ? '—' : `${Math.round((detailedCount / checkedCount) * 100)}%`}</span>
                     </div>
                     <div style={{ height: '6px', background: '#F0EDE8', borderRadius: '3px', overflow: 'hidden' }}>
                       <div style={{
                         height: '100%',
-                        width: `${(Object.values(expandedCategories).filter(Boolean).length / categories.length) * 100}%`,
+                        width: `${checkedCount === 0 ? 0 : (detailedCount / checkedCount) * 100}%`,
                         background: 'linear-gradient(90deg, #3D7A5A 0%, #5B8C6F 100%)',
                         borderRadius: '3px',
                         transition: 'width 0.3s ease'
@@ -2521,7 +2404,7 @@ export default function App() {
                       <span style={{ color: '#B87333', fontSize: '14px' }}>★</span>
                       <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '12px', color: '#5C5550' }}>
                         <strong style={{ color: '#B87333' }}>
-                          {globalSymptoms.filter(s => s.discriminating && symptomData[s.id]?.checked).length}
+                          {activeSymptoms.filter(s => isCoreAnywhere(s) && symptomData[s.id]?.checked).length}
                         </strong>
                         {' '}key indicators selected
                       </span>
@@ -2539,6 +2422,137 @@ export default function App() {
         {/* ============================================ */}
         {/* MEDICAL HISTORY TAB */}
         {/* ============================================ */}
+        {/* ============================================ */}
+        {/* RED FLAGS TAB                                */}
+        {/* ============================================ */}
+        {activeTab === 'flags' && (
+          <>
+            <div className="card" style={{
+              padding: '16px 18px',
+              marginBottom: '16px',
+              borderLeft: '4px solid #B3261E',
+              background: '#FEF4F3'
+            }}>
+              <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '13px', color: '#5C5550', margin: 0, lineHeight: '1.6' }}>
+                <strong style={{ color: '#8C1D18' }}>Check these first.</strong> Not everything that looks like dementia
+                is dementia, and some causes are treatable or reversible. Delirium in particular is a medical emergency
+                and is meant to be excluded before any subtype discussion. Nothing here feeds the subtype comparison —
+                these are a separate question with a different answer.
+              </p>
+            </div>
+
+            {flaggedRedFlags.length > 0 && (
+              <div className="card" style={{ padding: '16px 18px', marginBottom: '16px' }}>
+                <h3 style={{
+                  fontFamily: "'DM Sans', sans-serif", fontSize: '12px', color: '#6B6660',
+                  margin: '0 0 10px 0', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600'
+                }}>
+                  {flaggedRedFlags.length} to raise with the clinical team
+                </h3>
+                <ul style={{ margin: 0, paddingLeft: '18px' }}>
+                  {flaggedRedFlags.map(f => (
+                    <li key={f.id} style={{
+                      fontFamily: "'DM Sans', sans-serif", fontSize: '13px', color: '#4A4744',
+                      marginBottom: '4px', lineHeight: '1.5'
+                    }}>
+                      {f.title}
+                      <span style={{ color: RED_FLAG_URGENCY[f.urgency].color, fontWeight: '600', fontSize: '11px', marginLeft: '6px' }}>
+                        {RED_FLAG_URGENCY[f.urgency].label}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '80px' }}>
+              {activeRedFlags.map(flag => {
+                const answer = redFlagData[flag.id];
+                const urgency = RED_FLAG_URGENCY[flag.urgency];
+                return (
+                  <div key={flag.id} className="card" style={{
+                    padding: '16px 18px',
+                    borderLeft: answer === 'yes' ? `4px solid ${urgency.color}` : '4px solid transparent',
+                    background: answer === 'yes' ? urgency.background : 'white'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '10px', flexWrap: 'wrap' }}>
+                      <h4 style={{
+                        fontFamily: "'DM Sans', sans-serif", fontSize: '14px', fontWeight: '600',
+                        color: '#2D2A26', margin: 0
+                      }}>
+                        {flag.title}
+                      </h4>
+                      <span style={{
+                        fontFamily: "'DM Sans', sans-serif", fontSize: '10px', fontWeight: '600',
+                        color: urgency.color, textTransform: 'uppercase', letterSpacing: '0.4px'
+                      }}>
+                        {urgency.label}
+                      </span>
+                    </div>
+
+                    <p style={{
+                      fontFamily: "'DM Sans', sans-serif", fontSize: '13px', color: '#4A4744',
+                      margin: '8px 0 0 0', lineHeight: '1.55'
+                    }}>
+                      {flag.text}
+                    </p>
+
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                      {[['yes', 'Yes, this applies'], ['no', 'No'], ['unsure', 'Not sure']].map(([val, label]) => (
+                        <button
+                          key={val}
+                          onClick={() => toggleRedFlag(flag.id, val)}
+                          style={{
+                            fontFamily: "'DM Sans', sans-serif",
+                            fontSize: '12px',
+                            fontWeight: answer === val ? '600' : '400',
+                            padding: '6px 12px',
+                            borderRadius: '16px',
+                            cursor: 'pointer',
+                            border: answer === val ? `1.5px solid ${val === 'yes' ? urgency.color : '#8B8680'}` : '1px solid #E8E5E0',
+                            background: answer === val ? (val === 'yes' ? urgency.background : '#F4F3F1') : 'white',
+                            color: answer === val && val === 'yes' ? urgency.color : '#4A4744'
+                          }}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {(answer === 'yes' || answer === 'unsure') && (
+                      <div style={{
+                        marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #E8E5E0'
+                      }}>
+                        <p style={{
+                          fontFamily: "'DM Sans', sans-serif", fontSize: '12px', color: '#5C5550',
+                          margin: '0 0 6px 0', lineHeight: '1.55'
+                        }}>
+                          <strong>What this can mean:</strong> {flag.means}
+                        </p>
+                        <p style={{
+                          fontFamily: "'DM Sans', sans-serif", fontSize: '12px', color: '#5C5550',
+                          margin: 0, lineHeight: '1.55'
+                        }}>
+                          <strong>What to do:</strong> {flag.action}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {mode === 'quick' && (
+              <div className="card" style={{ padding: '14px 18px', marginBottom: '20px' }}>
+                <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '12px', color: '#6B6660', margin: 0, lineHeight: '1.5' }}>
+                  The quick screen shows {quickRedFlags.length} of {redFlags.length} red flags. The full assessment adds
+                  checks for head injury, alcohol and nutrition, and sleep apnoea.
+                </p>
+              </div>
+            )}
+          </>
+        )}
+
         {activeTab === 'history' && (
           <div className="card" style={{ padding: '24px' }}>
             <h2 style={{ fontSize: '18px', fontWeight: '600', margin: '0 0 16px 0', color: '#2D2A26' }}>
