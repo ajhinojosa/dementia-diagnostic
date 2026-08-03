@@ -37,13 +37,16 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          # Vite 5 requires Node 18+. Pinned to 20 LTS rather than `latest` so a
-          # new Node release cannot break the build without an explicit change.
-          node-version: '20'
+          # Vite 5 declares ^18 || >=20. Pinned to 22 to match the machine this
+          # is developed on, so CI cannot pass on a runtime the author never
+          # runs (or fail on one they cannot reproduce). Pinned rather than
+          # `latest` so a new Node release cannot break the build without an
+          # explicit change here.
+          node-version: '22'
           cache: npm
 
       - name: Install dependencies
