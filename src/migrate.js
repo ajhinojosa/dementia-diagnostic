@@ -10,10 +10,10 @@
 // worst possible failure.
 
 import { symptomById } from './data/symptoms.js';
-import { getModifiersForKind } from './data/itemKinds.js';
+import { getModifiersFor, resolveImpactKey } from './data/itemKinds.js';
 
 export const STORAGE_KEY = 'dementiaAssessmentData';
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 const ONSET_MAP = {
   '1month': 'm1',
@@ -36,13 +36,19 @@ const FREQUENCY_MAP = {
   constant: 'daily_many',
 };
 
-// Old severity was unanchored. Mapped to the closest functional anchor; the
-// mapping is necessarily approximate, which is itself an argument for the new
-// anchored scale.
-const SEVERITY_MAP = {
-  mild: 'noticeable',
-  moderate: 'workaround',
-  severe: 'assistance',
+// Old severity was unanchored, and the first revision's single `impact` scale
+// was task-shaped even for behaviours. Both are mapped onto whichever of the two
+// current scales now applies to the item. The mapping is necessarily
+// approximate, which is itself the argument for anchored scales.
+const SEVERITY_TO_ABILITY = { mild: 'none', moderate: 'reminders', severe: 'handson' };
+const SEVERITY_TO_CONSEQUENCE = { mild: 'none', moderate: 'upsetting', severe: 'supervision' };
+
+// v2 `impact` values -> the two v3 scales.
+const IMPACT_TO_ABILITY = {
+  noticeable: 'none', workaround: 'reminders', assistance: 'handson', prevents: 'cannot',
+};
+const IMPACT_TO_CONSEQUENCE = {
+  noticeable: 'none', workaround: 'upsetting', assistance: 'supervision', prevents: 'harm',
 };
 
 function migrateSymptomEntry(id, entry) {
@@ -51,7 +57,9 @@ function migrateSymptomEntry(id, entry) {
   // old combined stroke-or-cardiovascular-disease item).
   if (!symptom || !entry?.checked) return null;
 
-  const allowed = new Set(getModifiersForKind(symptom.kind));
+  const allowed = new Set(getModifiersFor(symptom));
+  const impactKey = resolveImpactKey(symptom);
+  const isAbility = impactKey === 'impactAbility';
   const next = { checked: true };
 
   const carry = (key, value) => {
@@ -60,7 +68,12 @@ function migrateSymptomEntry(id, entry) {
 
   carry('firstNoticed', entry.firstNoticed ?? ONSET_MAP[entry.onset]);
   carry('frequency', entry.frequency in FREQUENCY_MAP ? FREQUENCY_MAP[entry.frequency] : entry.frequency);
-  carry('impact', entry.impact ?? SEVERITY_MAP[entry.severity]);
+  // Accepts v1 (`severity`), v2 (`impact`) and v3 (already-scaled) shapes.
+  const priorImpact =
+    entry[impactKey] ??
+    (isAbility ? IMPACT_TO_ABILITY[entry.impact] : IMPACT_TO_CONSEQUENCE[entry.impact]) ??
+    (isAbility ? SEVERITY_TO_ABILITY[entry.severity] : SEVERITY_TO_CONSEQUENCE[entry.severity]);
+  carry(impactKey, priorImpact);
   carry('trend', entry.trend);
   // A past event's date was previously recorded in the onset field, since that
   // was the only date field available.
@@ -87,7 +100,7 @@ export function migrateSavedData(parsed) {
     redFlagData: parsed.redFlagData ?? {},
     mode: parsed.mode === 'quick' ? 'quick' : 'full',
     savedAt: parsed.savedAt ?? null,
-    migratedFrom: parsed.version ? null : 1,
+    migratedFrom: parsed.version === SCHEMA_VERSION ? null : (parsed.version ?? 1),
   };
 }
 

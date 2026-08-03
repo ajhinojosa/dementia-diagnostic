@@ -50,17 +50,39 @@ export const MODIFIER_DEFS = {
     ],
   },
 
-  // Replaces the unanchored Mild / Moderate / Severe. Anchoring severity to
-  // what the person can still DO makes it far more consistent between two
-  // different caregivers rating the same person.
-  impact: {
-    label: 'Impact',
-    help: 'How much does this affect daily life right now?',
+  // There are TWO different questions hiding under the word "impact", and using
+  // one option set for both produced nonsense.
+  //
+  // For an ABILITY the question is how much help is needed. That works for
+  // "cannot manage finances". It is meaningless for apathy -- help them do
+  // what? -- and for reckless spending, which is not a task anyone assists with.
+  //
+  // For a BEHAVIOUR or an experienced symptom the question is what it has
+  // actually led to. "Prevents the activity" says nothing about loss of drive;
+  // "has caused financial loss" is exactly right for money given to a scam.
+  //
+  // Both replace the original unanchored Mild / Moderate / Severe, which two
+  // carers rating the same person would apply differently.
+  impactAbility: {
+    label: 'Help needed',
+    help: 'How much help do they need with this?',
     options: [
-      { value: 'noticeable', label: 'Noticeable, but manages fine' },
-      { value: 'workaround', label: 'Needs reminders or a workaround' },
-      { value: 'assistance', label: 'Needs hands-on help with it' },
-      { value: 'prevents', label: 'Prevents the activity, or is unsafe' },
+      { value: 'none', label: 'None — just noticeable' },
+      { value: 'reminders', label: 'Reminders or a workaround' },
+      { value: 'handson', label: 'Hands-on help each time' },
+      { value: 'cannot', label: 'Cannot do it at all now' },
+      { value: 'unsure', label: 'Not sure' },
+    ],
+  },
+
+  impactConsequence: {
+    label: 'Consequences',
+    help: 'What has this actually led to?',
+    options: [
+      { value: 'none', label: 'Nothing much so far' },
+      { value: 'upsetting', label: 'Upsetting or disruptive' },
+      { value: 'supervision', label: 'Someone has to step in or supervise' },
+      { value: 'harm', label: 'Has caused harm, loss or danger' },
       { value: 'unsure', label: 'Not sure' },
     ],
   },
@@ -154,7 +176,25 @@ export const ITEM_KINDS = {
   },
 };
 
+// `impact` is a SLOT, not a modifier. Which option set fills it depends on
+// whether the item describes something the person can no longer do, or
+// something that happens and has consequences.
+//
+// Rule: every `episodic` item takes the consequence scale, because a recurring
+// event is never an ability. `deficit` items default to the ability scale and
+// opt into consequence via `scale: 'consequence'` on the item.
+export const resolveImpactKey = (symptom) => {
+  if (symptom.scale === 'consequence') return 'impactConsequence';
+  if (symptom.scale === 'ability') return 'impactAbility';
+  return symptom.kind === 'episodic' ? 'impactConsequence' : 'impactAbility';
+};
+
 export const getModifiersForKind = (kind) => ITEM_KINDS[kind]?.modifiers ?? [];
+
+// Resolved modifier keys for a specific item. Use this in the UI; the
+// kind-only version above is for checks that do not have an item to hand.
+export const getModifiersFor = (symptom) =>
+  getModifiersForKind(symptom.kind).map((m) => (m === 'impact' ? resolveImpactKey(symptom) : m));
 
 // Human-readable value lookup, used by the printable report.
 export const modifierLabel = (modifierKey, value) => {
@@ -163,3 +203,12 @@ export const modifierLabel = (modifierKey, value) => {
   if (!def) return null;
   return def.options.find((o) => o.value === value)?.label ?? null;
 };
+
+// Values across BOTH impact scales that indicate real functional loss, used by
+// the staging estimate so it does not have to know which scale an item used.
+export const IMPACT_SEVERE = new Set(['cannot', 'harm']);
+export const IMPACT_MODERATE = new Set(['handson', 'supervision']);
+
+// Reads whichever impact scale an entry actually used, so consumers (staging,
+// the report) do not have to know which one applied to a given item.
+export const impactValueOf = (entry) => entry?.impactAbility ?? entry?.impactConsequence ?? '';

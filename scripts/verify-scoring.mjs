@@ -7,7 +7,7 @@
 import { globalSymptoms, quickSymptoms, symptomById, categories } from '../src/data/symptoms.js';
 import { redFlags } from '../src/data/redFlags.js';
 import { dementiaTypes, typeKeys, EVIDENCE_WEIGHTS } from '../src/data/dementiaTypes.js';
-import { ITEM_KINDS, getModifiersForKind } from '../src/data/itemKinds.js';
+import { ITEM_KINDS, getModifiersForKind, getModifiersFor, resolveImpactKey } from '../src/data/itemKinds.js';
 import { computeScores, rankTypes, assessConfidence } from '../src/scoring.js';
 
 let failures = 0;
@@ -66,12 +66,35 @@ check('course/context items expose no modifiers',
 check('no `event` item is asked "how often"',
   globalSymptoms
     .filter((s) => s.kind === 'event')
-    .every((s) => !getModifiersForKind(s.kind).includes('frequency')));
+    .every((s) => !getModifiersFor(s).includes('frequency')));
 
 check('no `deficit` item is asked "how often"',
   globalSymptoms
     .filter((s) => s.kind === 'deficit')
-    .every((s) => !getModifiersForKind(s.kind).includes('frequency')));
+    .every((s) => !getModifiersFor(s).includes('frequency')));
+
+// Impact comes in two scales. Asking "how much help do they need" about apathy
+// or reckless spending has no answer -- there is no task to assist with -- so
+// behaviours and experienced symptoms are asked what they LED TO instead.
+check('every item resolves to exactly one impact scale',
+  globalSymptoms
+    .filter((s) => ITEM_KINDS[s.kind].modifiers.includes('impact'))
+    .every((s) => {
+      const m = getModifiersFor(s);
+      return m.includes('impactAbility') !== m.includes('impactConsequence');
+    }));
+
+check('no episodic item is asked the ability-shaped impact question',
+  globalSymptoms
+    .filter((s) => s.kind === 'episodic')
+    .every((s) => resolveImpactKey(s) === 'impactConsequence'),
+  globalSymptoms.filter((s) => s.kind === 'episodic' && resolveImpactKey(s) !== 'impactConsequence').map((s) => s.id).join(', '));
+
+check('`impact` slot never leaks to the UI unresolved',
+  globalSymptoms.every((s) => !getModifiersFor(s).includes('impact')));
+
+check('every `scale` value is valid',
+  globalSymptoms.every((s) => s.scale === undefined || ['ability', 'consequence'].includes(s.scale)));
 
 check('red flag ids unique and all carry an action',
   new Set(redFlags.map((f) => f.id)).size === redFlags.length &&
@@ -163,6 +186,27 @@ const GOLDEN_KINDS = {
 };
 for (const [id, kind] of Object.entries(GOLDEN_KINDS)) {
   check(`${id} is kind "${kind}"`, symptomById[id]?.kind === kind, `got ${symptomById[id]?.kind}`);
+}
+
+// Which impact question each item asks is a clinical judgement about whether an
+// ABILITY was lost or a BEHAVIOUR has consequences. Pinned, because getting it
+// wrong produces questions with no answer ("how much help do they need with
+// their apathy?").
+const GOLDEN_SCALES = {
+  // abilities: there is a real task, and help is a real answer
+  mem7: 'impactAbility', exec1: 'impactAbility', exec4: 'impactAbility',
+  lang3: 'impactAbility', mov1: 'impactAbility', auto2: 'impactAbility',
+  // behaviours and experienced symptoms: no task to assist with
+  beh5: 'impactConsequence',   // apathy -- you prompt, you do not assist
+  beh6: 'impactConsequence',   // reckless spending -- what did it cost
+  beh1: 'impactConsequence', beh3: 'impactConsequence', beh7: 'impactConsequence',
+  hall1: 'impactConsequence', sleep1: 'impactConsequence', eat1: 'impactConsequence',
+  mov5: 'impactConsequence', auto4: 'impactConsequence',
+};
+for (const [id, expected] of Object.entries(GOLDEN_SCALES)) {
+  check(`${id} asks the ${expected === 'impactAbility' ? 'help-needed' : 'consequences'} question`,
+    resolveImpactKey(symptomById[id]) === expected,
+    `got ${resolveImpactKey(symptomById[id])}`);
 }
 
 // ---------------------------------------------------------------

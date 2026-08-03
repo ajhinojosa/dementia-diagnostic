@@ -12,6 +12,8 @@ name: Verify
 #             claims to test (three of four did, on the first pass)
 #   claims    a corrected clinical claim survives in the shipped prose after the
 #             data layer was fixed (two did, in the Sources page)
+#   backup    export/import stops round-tripping losslessly. A backup that
+#             restores lossily is worse than none, because it is trusted
 #
 # They run as separate steps rather than one `npm run verify` so the failing
 # class is visible from the job summary without opening the log.
@@ -72,3 +74,9 @@ jobs:
         # where the data is right but the methodology page still asserts the
         # error.
         run: npm run verify:claims
+
+      - name: Verify export/import round trip
+        # What goes into an export must come back out of an import unchanged,
+        # older exports must still load, and a malformed file must produce a
+        # message rather than a blank screen.
+        run: npm run verify:backup

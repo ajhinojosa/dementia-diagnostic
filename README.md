@@ -64,8 +64,36 @@ Items are not all the same kind of thing, so they don't share one set of follow-
 | Test result | When · Source | MRI showed atrophy and vascular changes |
 | Background | *nothing* | Symptoms began before 65 |
 
-Severity is anchored to what the person can still do ("needs reminders" / "needs hands-on help" /
-"prevents the activity") rather than an unlabelled mild/moderate/severe scale.
+### Two impact scales
+
+"Impact" was two different questions under one label. For an **ability** the question is how much help
+is needed — fine for "cannot manage finances". For a **behaviour or experienced symptom** there is no
+task to assist with, so asking it produces nonsense: help them do *what* about apathy? You do not
+"help someone with" being reckless with money. What matters there is what it led to.
+
+| Scale | Question | Anchors | Applies to |
+|---|---|---|---|
+| `impactAbility` | How much help do they need? | none → reminders → hands-on → cannot do it | 15 items where a real task was lost |
+| `impactConsequence` | What has this led to? | nothing much → upsetting → someone steps in → caused harm, loss or danger | 31 behaviours and experienced symptoms |
+
+Every `episodic` item takes the consequence scale as a rule, since a recurring event is never an
+ability. `deficit` items default to ability and opt in with `scale: 'consequence'`. Both replace the
+original unanchored mild/moderate/severe, which two carers would apply differently.
+
+## Backing up an assessment
+
+**Export** writes the whole assessment — symptoms with their details, medical history, functional
+status, red flags — to a JSON file. **Import** reads it back through the same migration as
+localStorage, so a file exported from an older version still loads correctly rather than
+half-loading with fields silently dropped.
+
+This exists because the only copy previously lived in one localStorage key, on one browser, on one
+device, with no undo. A cleared browser or a stray write lost everything. Import shows what is in the
+file *and* what is about to be replaced before doing it, and reports any items dropped because they
+are no longer part of the assessment.
+
+Exported files contain patient name, age and medical history — treat them as you would any medical
+record.
 
 ## Development
 
@@ -82,6 +110,7 @@ npm run verify     # the three gates only
 | `verify:scoring` | Symptom→type mappings drifting, and textbook presentations misranking in either mode |
 | `verify:controls` | A regression test passing for a reason unrelated to what it claims to test |
 | `verify:claims` | A corrected clinical claim surviving in the shipped prose after the data was fixed |
+| `verify:backup` | Export/import failing to round-trip losslessly, older exports failing to load, or a malformed file crashing rather than producing a message |
 
 `verify:scoring` pins the criteria-derived attributions **exactly**, in a golden-mapping table.
 Ranking tests alone are robust to single mis-mappings by design — a textbook DLB profile still ranks

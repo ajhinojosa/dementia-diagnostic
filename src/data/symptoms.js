@@ -170,6 +170,7 @@ export const globalSymptoms = [
     id: 'beh1',
     category: 'Behaviour & Personality',
     kind: 'deficit',
+    scale: 'consequence', // personality change is not a task; what matters is the effect on those around them
     quick: true,
     text: 'Seems like a fundamentally different person than they used to be',
     types: { bvftd: 'core' },
@@ -190,6 +191,7 @@ export const globalSymptoms = [
     id: 'beh3',
     category: 'Behaviour & Personality',
     kind: 'deficit',
+    scale: 'consequence', // lost empathy is not an ability you assist with
     quick: true,
     text: 'Has stopped responding to other people’s feelings — indifferent to distress that would once have moved them',
     types: { bvftd: 'core' },
@@ -209,6 +211,7 @@ export const globalSymptoms = [
     id: 'beh5',
     category: 'Behaviour & Personality',
     kind: 'deficit',
+    scale: 'consequence', // apathy: you prompt them, you do not help them do it
     text: 'Profound loss of drive — will sit all day unless prompted, no longer initiates anything they used to enjoy',
     types: { bvftd: 'core', vascular: 'supportive', alzheimers: 'common', mixed: 'common' },
     evidence:
@@ -227,6 +230,7 @@ export const globalSymptoms = [
     id: 'beh7',
     category: 'Behaviour & Personality',
     kind: 'deficit',
+    scale: 'consequence', // they CAN wash; they do not. Prompting, not assistance
     text: 'Has stopped washing, changing clothes or grooming, and does not seem bothered by it',
     types: { bvftd: 'supportive' },
     evidence:
@@ -292,6 +296,7 @@ export const globalSymptoms = [
     id: 'mov3',
     category: 'Movement & Physical',
     kind: 'deficit',
+    scale: 'consequence', // a tremor is experienced, not performed
     text: 'Hands shake when resting in their lap',
     types: { lewy: 'supportive' },
     evidence:
@@ -310,6 +315,7 @@ export const globalSymptoms = [
     id: 'mov5',
     category: 'Movement & Physical',
     kind: 'deficit',
+    scale: 'consequence', // reduced expression costs nothing to do
     text: 'Face has become expressionless or mask-like',
     types: { lewy: 'supportive' },
     evidence: 'Hypomimia, part of the DLB parkinsonism feature.',
@@ -378,6 +384,7 @@ export const globalSymptoms = [
     id: 'sleep3',
     category: 'Sleep & Arousal',
     kind: 'deficit',
+    scale: 'consequence', // sleepiness is not a task
     text: 'Sleeps a great deal in the daytime — dozes off mid-conversation or mid-activity',
     types: { lewy: 'supportive' },
     evidence:
@@ -400,6 +407,7 @@ export const globalSymptoms = [
     id: 'eat1',
     category: 'Eating & Oral Behaviours',
     kind: 'deficit',
+    scale: 'consequence', // a food preference is not an ability
     quick: true,
     text: 'Developed a striking new sweet tooth, or now craves carbohydrates they never used to want',
     types: { bvftd: 'core' },
@@ -419,6 +427,7 @@ export const globalSymptoms = [
     id: 'eat3',
     category: 'Eating & Oral Behaviours',
     kind: 'deficit',
+    scale: 'consequence', // food fads are not an ability
     text: 'Fixated on a narrow set of foods, or has rigid new rules about eating',
     types: { bvftd: 'core' },
     evidence: 'Rascovsky 2011 feature V: food fads as part of the hyperorality criterion.',
@@ -436,6 +445,7 @@ export const globalSymptoms = [
     id: 'eat5',
     category: 'Eating & Oral Behaviours',
     kind: 'deficit',
+    scale: 'consequence', // weight loss: the concern is harm, not assistance
     text: 'Appetite has fallen away and they are losing weight',
     types: { alzheimers: 'common' },
     against: ['bvftd'],
@@ -479,6 +489,7 @@ export const globalSymptoms = [
     id: 'lang4',
     category: 'Language & Communication',
     kind: 'deficit',
+    scale: 'consequence', // withdrawal is a behaviour, not a lost skill
     text: 'Has withdrawn from conversation and social occasions',
     types: { alzheimers: 'common', bvftd: 'common', ppa: 'common' },
     evidence:
@@ -519,6 +530,7 @@ export const globalSymptoms = [
     id: 'auto3',
     category: 'Autonomic & Other',
     kind: 'deficit',
+    scale: 'consequence', // constipation is experienced, not performed
     text: 'Long-standing constipation not explained by medication',
     types: { lewy: 'supportive' },
     evidence:
@@ -528,6 +540,7 @@ export const globalSymptoms = [
     id: 'auto4',
     category: 'Autonomic & Other',
     kind: 'deficit',
+    scale: 'consequence', // anosmia is experienced; the risk is missed gas or spoiled food
     text: 'Lost their sense of smell, around or before the other symptoms began',
     types: { lewy: 'supportive' },
     evidence:

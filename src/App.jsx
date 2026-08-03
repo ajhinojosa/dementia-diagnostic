@@ -2,7 +2,15 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 
 import { dementiaTypes, typeKeys, EVIDENCE_LABELS } from './data/dementiaTypes.js';
 import { globalSymptoms, quickSymptoms, categories as allCategories } from './data/symptoms.js';
-import { ITEM_KINDS, MODIFIER_DEFS, getModifiersForKind, modifierLabel } from './data/itemKinds.js';
+import {
+  ITEM_KINDS,
+  MODIFIER_DEFS,
+  getModifiersFor,
+  modifierLabel,
+  impactValueOf,
+  IMPACT_SEVERE,
+  IMPACT_MODERATE,
+} from './data/itemKinds.js';
 import { redFlags, quickRedFlags, RED_FLAG_URGENCY } from './data/redFlags.js';
 import {
   computeScores,
@@ -12,6 +20,7 @@ import {
   unexploredCategories,
 } from './scoring.js';
 import { loadSavedData, STORAGE_KEY, SCHEMA_VERSION } from './migrate.js';
+import { buildExport, exportFilename, parseImport, downloadJSON } from './backup.js';
 
 // ============================================
 // LOCAL DATA (functional assessment + staging)
@@ -265,6 +274,8 @@ export default function App() {
   const [showSourcesView, setShowSourcesView] = useState(false);
   const [saveStatus, setSaveStatus] = useState(""); // For save confirmation message
   const [migrationNotice, setMigrationNotice] = useState(false);
+  const [pendingImport, setPendingImport] = useState(null);
+  const [importError, setImportError] = useState('');
 
   // The item set currently in play. Everything downstream -- scoring maxima,
   // category list, progress -- derives from this, which is what lets the quick
@@ -309,6 +320,55 @@ export default function App() {
       setSaveStatus('Error saving data');
       setTimeout(() => setSaveStatus(''), 3000);
     }
+  };
+
+  // Export the whole assessment to a file the user controls. Until this
+  // existed, one localStorage key on one browser was the only copy, with no
+  // undo -- a cleared browser or a stray write lost everything.
+  const exportData = () => {
+    try {
+      const payload = buildExport({ symptomData, medicalHistory, adlData, redFlagData, mode });
+      downloadJSON(exportFilename(medicalHistory), payload);
+      setSaveStatus('Exported to your downloads');
+      setTimeout(() => setSaveStatus(''), 4000);
+    } catch (error) {
+      console.error('Export failed:', error);
+      setSaveStatus('Error exporting');
+      setTimeout(() => setSaveStatus(''), 4000);
+    }
+  };
+
+  const fileInputRef = useRef(null);
+
+  const handleImportFile = async (event) => {
+    const file = event.target.files?.[0];
+    // Reset immediately so re-picking the same file still fires a change event.
+    event.target.value = '';
+    if (!file) return;
+
+    const result = parseImport(await file.text());
+    if (!result.ok) {
+      setImportError(result.error);
+      return;
+    }
+    setImportError('');
+    setPendingImport(result);
+  };
+
+  // Importing replaces everything currently entered, so it asks first and shows
+  // what is in the file AND what would be lost. Overwriting someone's records
+  // without showing them the trade is how data disappears.
+  const confirmImport = () => {
+    const { data } = pendingImport;
+    setSymptomData(data.symptomData);
+    setMedicalHistory((prev) => ({ ...prev, ...data.medicalHistory }));
+    setAdlData(data.adlData);
+    setRedFlagData(data.redFlagData);
+    setMode(data.mode);
+    setModeChosen(true);
+    setPendingImport(null);
+    setSaveStatus('Assessment loaded from file');
+    setTimeout(() => setSaveStatus(''), 4000);
   };
 
   // Clear saved data function
@@ -421,7 +481,7 @@ export default function App() {
   const detailedCount = useMemo(
     () => activeSymptoms.filter(s => {
       if (!symptomData[s.id]?.checked) return false;
-      const mods = getModifiersForKind(s.kind);
+      const mods = getModifiersFor(s);
       // Items with no modifiers (course/context) are complete by definition.
       return mods.every(m => symptomData[s.id]?.[m]);
     }).length,
@@ -459,10 +519,13 @@ export default function App() {
     const severeBadl = badlItems.filter(item => adlData[item.id] === "dependent").length;
     
     // Count symptom severity
-    // `impact` replaced the old unanchored `severity` field. 'prevents' and
-    // 'assistance' are the two anchors that indicate genuine functional loss.
-    const severeSymptoms = Object.values(symptomData).filter(s => s?.checked && s?.impact === "prevents").length;
-    const moderateSymptoms = Object.values(symptomData).filter(s => s?.checked && s?.impact === "assistance").length;
+    // Impact now comes in two scales -- how much help an ability needs, or what
+    // a behaviour has led to -- so staging reads whichever one the item used and
+    // compares against the anchors that mean real functional loss in either.
+    const severeSymptoms = Object.values(symptomData)
+      .filter(s => s?.checked && IMPACT_SEVERE.has(impactValueOf(s))).length;
+    const moderateSymptoms = Object.values(symptomData)
+      .filter(s => s?.checked && IMPACT_MODERATE.has(impactValueOf(s))).length;
     
     // Determine stage based on combined factors
     let stage = "unknown";
@@ -767,7 +830,7 @@ export default function App() {
                         // labelled -- a fixed Onset/Frequency/Severity trio would
                         // print three dashes for a past event and read as missing
                         // data rather than as questions that never applied.
-                        const details = getModifiersForKind(symptom.kind)
+                        const details = getModifiersFor(symptom)
                           .map(key => ({ label: MODIFIER_DEFS[key].label, value: modifierLabel(key, symptom[key]) }))
                           .filter(d => d.value);
                         return (
@@ -783,7 +846,7 @@ export default function App() {
                                     <span style={{ color: '#666' }}>{d.label}:</span> {d.value}
                                   </div>
                                 ))
-                              : (getModifiersForKind(symptom.kind).length === 0
+                              : (getModifiersFor(symptom).length === 0
                                   ? <span style={{ color: '#999', fontStyle: 'italic' }}>n/a for this kind of item</span>
                                   : <span style={{ color: '#999' }}>—</span>)}
                           </td>
@@ -1492,6 +1555,63 @@ export default function App() {
                 {saveStatus}
               </span>
             )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/json,.json"
+              onChange={handleImportFile}
+              style={{ display: 'none' }}
+            />
+            <button
+              onClick={exportData}
+              title="Save a copy of this assessment to a file you control"
+              style={{
+                padding: '10px 16px',
+                background: 'white',
+                color: '#3D7A5A',
+                border: '1.5px solid #3D7A5A',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '600',
+                fontFamily: "'DM Sans', sans-serif",
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              Export
+            </button>
+            <button
+              onClick={() => { setImportError(''); fileInputRef.current?.click(); }}
+              title="Load an assessment from a file you exported earlier"
+              style={{
+                padding: '10px 16px',
+                background: 'white',
+                color: '#5F7A8C',
+                border: '1.5px solid #5F7A8C',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '600',
+                fontFamily: "'DM Sans', sans-serif",
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
+              Import
+            </button>
             <button
               onClick={saveData}
               style={{
@@ -1544,6 +1664,106 @@ export default function App() {
 
       <div style={{ maxWidth: '900px', margin: '0 auto', padding: '0 16px' }}>
         
+        {importError && (
+          <div className="card" style={{
+            padding: '12px 16px', marginBottom: '16px',
+            borderLeft: '4px solid #B3261E', background: '#FEF4F3'
+          }}>
+            <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '13px', color: '#8C1D18', margin: 0 }}>
+              <strong>Could not import that file.</strong> {importError}
+            </p>
+          </div>
+        )}
+
+        {/* Import replaces everything currently entered. It shows what is in the
+            file AND what is about to be lost, because overwriting someone's
+            records without showing them the trade is how data disappears. */}
+        {pendingImport && (
+          <div className="card" style={{
+            padding: '18px', marginBottom: '16px',
+            borderLeft: '4px solid #5F7A8C', background: '#F5F8FA'
+          }}>
+            <h3 style={{
+              fontFamily: "'DM Sans', sans-serif", fontSize: '15px', fontWeight: '600',
+              color: '#2D2A26', margin: '0 0 10px 0'
+            }}>
+              Load this assessment?
+            </h3>
+
+            <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', marginBottom: '12px' }}>
+              <div>
+                <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '11px', color: '#8B8680', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  In the file
+                </div>
+                <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '13px', color: '#2D2A26', marginTop: '4px', lineHeight: '1.6' }}>
+                  {pendingImport.summary.patientName && <><strong>{pendingImport.summary.patientName}</strong><br /></>}
+                  {pendingImport.summary.symptoms} symptom{pendingImport.summary.symptoms === 1 ? '' : 's'}
+                  {pendingImport.summary.redFlags > 0 && <>, {pendingImport.summary.redFlags} red flag{pendingImport.summary.redFlags === 1 ? '' : 's'}</>}
+                  {pendingImport.summary.adls > 0 && <>, {pendingImport.summary.adls} functional item{pendingImport.summary.adls === 1 ? '' : 's'}</>}
+                  {pendingImport.summary.exportedAt && (
+                    <><br /><span style={{ color: '#8B8680' }}>
+                      exported {new Date(pendingImport.summary.exportedAt).toLocaleDateString()}
+                    </span></>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '11px', color: '#8B8680', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Currently entered
+                </div>
+                <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '13px', color: checkedCount > 0 ? '#A05252' : '#8B8680', marginTop: '4px', lineHeight: '1.6' }}>
+                  {checkedCount} symptom{checkedCount === 1 ? '' : 's'}
+                  {checkedCount > 0 ? ' — this will be replaced' : ' — nothing to lose'}
+                </div>
+              </div>
+            </div>
+
+            {pendingImport.summary.dropped > 0 && (
+              <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '12px', color: '#8B6914', margin: '0 0 10px 0', lineHeight: '1.5' }}>
+                {pendingImport.summary.dropped} item{pendingImport.summary.dropped === 1 ? '' : 's'} in the file
+                {pendingImport.summary.dropped === 1 ? ' is' : ' are'} no longer part of the assessment and will not be loaded.
+              </p>
+            )}
+
+            {pendingImport.summary.upgraded && (
+              <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '12px', color: '#6B6660', margin: '0 0 10px 0', lineHeight: '1.5' }}>
+                This file was made by an earlier version. It will be brought up to date on load — worth
+                re-checking any timing or impact answers afterwards.
+              </p>
+            )}
+
+            {checkedCount > 0 && (
+              <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '12px', color: '#A05252', margin: '0 0 12px 0', lineHeight: '1.5' }}>
+                Export what you have now first if you want to keep it.
+              </p>
+            )}
+
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <button
+                onClick={confirmImport}
+                style={{
+                  padding: '9px 18px', background: '#5F7A8C', color: 'white', border: 'none',
+                  borderRadius: '8px', fontSize: '13px', fontWeight: '600',
+                  fontFamily: "'DM Sans', sans-serif", cursor: 'pointer'
+                }}
+              >
+                Replace with this file
+              </button>
+              <button
+                onClick={() => setPendingImport(null)}
+                style={{
+                  padding: '9px 18px', background: 'white', color: '#6B6660',
+                  border: '1px solid #E8E5E0', borderRadius: '8px', fontSize: '13px',
+                  fontWeight: '600', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Mode selector. The short screen exists because a 62-item checklist is
             a real barrier for someone doing this at a kitchen table; the honest
             trade-off is stated rather than buried. */}
@@ -2243,7 +2463,7 @@ export default function App() {
                                   asked about direction of travel rather than "how
                                   often"; an item that already describes the course
                                   of the illness is asked nothing at all. */}
-                              {isChecked && getModifiersForKind(symptom.kind).length > 0 && (
+                              {isChecked && getModifiersFor(symptom).length > 0 && (
                                 <div style={{
                                   display: 'flex',
                                   flexWrap: 'wrap',
@@ -2254,7 +2474,7 @@ export default function App() {
                                   background: '#F8F7F5',
                                   borderRadius: '8px'
                                 }}>
-                                  {getModifiersForKind(symptom.kind).map(key => {
+                                  {getModifiersFor(symptom).map(key => {
                                     const def = MODIFIER_DEFS[key];
                                     const fieldId = `${symptom.id}-${key}`;
                                     return (
@@ -2306,7 +2526,7 @@ export default function App() {
                                   no follow-up questions -- asking "when did you first
                                   notice that it has been gradual for years" is
                                   circular. Say so rather than leaving a blank gap. */}
-                              {isChecked && getModifiersForKind(symptom.kind).length === 0 && (
+                              {isChecked && getModifiersFor(symptom).length === 0 && (
                                 <div style={{
                                   marginTop: '10px',
                                   marginLeft: '34px',
