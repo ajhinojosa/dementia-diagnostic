@@ -78,6 +78,94 @@ check('red flag ids unique and all carry an action',
     redFlags.every((f) => f.action?.length > 20));
 
 // ---------------------------------------------------------------
+console.log('\n== Golden mappings (criteria-derived, asserted exactly) ==');
+
+// Ranking tests are robust to single mis-mappings BY DESIGN -- a textbook DLB
+// profile still ranks LBD first if one of its five core features is wrongly
+// reattributed. That robustness is correct for rankings and useless as a guard
+// on the attributions themselves, which is exactly what the clinical audit
+// fixed. So the criteria-derived mappings are pinned here, exactly.
+//
+// Each entry is the COMPLETE expected `types` map. Changing one of these should
+// require changing this table, which should require citing the criteria.
+const GOLDEN = {
+  // DLB 2017 core clinical features
+  mem5:   { lewy: 'core' },                                   // fluctuating cognition
+  hall1:  { lewy: 'core' },                                   // recurrent complex visual hallucinations
+  sleep1: { lewy: 'core' },                                   // REM sleep behaviour disorder
+  mov2:   { lewy: 'core' },                                   // parkinsonism (rigidity/bradykinesia)
+
+  // DLB 2017 SUPPORTIVE features -- previously over-weighted as core/key
+  sleep3: { lewy: 'supportive' },                             // excessive daytime sleepiness
+  auto5:  { lewy: 'supportive' },                             // antipsychotic sensitivity (NOT a biomarker)
+
+  // Core for two diseases at once -- the case the old shared boolean could not express
+  mov1:   { lewy: 'core', vascular: 'core' },                 // gait: DLB parkinsonism + VASCOG A2a
+  exec4:  { lewy: 'core', pca: 'core', alzheimers: 'common' },// visuospatial: core twice, non-specific once
+
+  // VASCOG 2014
+  mov6:   { vascular: 'core', mixed: 'core' },                // A1a documented stroke + persistence
+  mov8:   { vascular: 'core' },                               // A1b physical stroke signs
+  auto2:  { vascular: 'core', mixed: 'supportive' },          // A2b early urinary -- previously under-weighted
+  exec3:  { vascular: 'core', lewy: 'supportive', mixed: 'supportive' },
+
+  // Rascovsky 2011 bvFTD features I-VI
+  beh1:   { bvftd: 'core' },
+  beh2:   { bvftd: 'core' },                                  // I disinhibition
+  beh3:   { bvftd: 'core' },                                  // III loss of empathy
+  beh4:   { bvftd: 'core' },                                  // IV perseverative/compulsive
+  eat1:   { bvftd: 'core' },                                  // V hyperorality / sweet preference
+  onset4: { bvftd: 'core' },                                  // behaviour precedes memory
+
+  // Gorno-Tempini 2011 PPA
+  lang2:  { ppa: 'core' },                                    // nonfluent/agrammatic
+  lang3:  { ppa: 'core' },                                    // semantic
+  onset5: { ppa: 'core' },                                    // language-led for 1-2 years
+
+  // Crutch 2017 PCA
+  onset6: { pca: 'core' },
+  exec5:  { pca: 'core', alzheimers: 'common' },
+
+  // NIA-AA / LATE
+  onset2: { alzheimers: 'core', late: 'supportive' },
+  mem1:   { alzheimers: 'core', late: 'core', mixed: 'supportive' },
+  mem7:   { alzheimers: 'core', late: 'core', mixed: 'supportive' },
+  mem9:   { late: 'core', alzheimers: 'common' },
+
+  // The corrected young-onset item: must NOT be bvFTD-only
+  onset1: { bvftd: 'supportive', ppa: 'supportive', pca: 'supportive', alzheimers: 'common' },
+};
+
+for (const [id, expected] of Object.entries(GOLDEN)) {
+  const actual = symptomById[id]?.types;
+  const same =
+    actual &&
+    Object.keys(expected).length === Object.keys(actual).length &&
+    Object.entries(expected).every(([t, tier]) => actual[t] === tier);
+  check(`${id} maps exactly as the criteria specify`, Boolean(same),
+    actual ? `got ${JSON.stringify(actual)}, expected ${JSON.stringify(expected)}` : 'symptom missing');
+}
+
+// Counter-evidence mappings are part of the clinical reasoning, so pin them too.
+check('exactly the intended symptoms argue against bvFTD',
+  globalSymptoms.filter(s => s.against?.includes('bvftd')).map(s => s.id).sort().join(',') === 'eat5,mem7',
+  globalSymptoms.filter(s => s.against?.includes('bvftd')).map(s => s.id).join(','));
+
+// Item kinds drive which questions get asked, so a silent kind change would
+// reintroduce exactly the UX defect this revision fixed.
+const GOLDEN_KINDS = {
+  mov6: 'event', mov7: 'event', auto5: 'event',        // past events -> date only
+  onset2: 'course', onset4: 'course', mem4: 'course',  // course statements -> no modifiers
+  onset1: 'context',                                   // background -> no modifiers
+  mixed7: 'finding',                                   // test result
+  mem7: 'deficit', exec3: 'deficit', beh3: 'deficit',  // ongoing -> no "how often"
+  hall1: 'episodic', sleep1: 'episodic', beh2: 'episodic',
+};
+for (const [id, kind] of Object.entries(GOLDEN_KINDS)) {
+  check(`${id} is kind "${kind}"`, symptomById[id]?.kind === kind, `got ${symptomById[id]?.kind}`);
+}
+
+// ---------------------------------------------------------------
 console.log('\n== Quick screen ==');
 
 check(`quick screen is 15-25 items (is ${quickSymptoms.length})`,

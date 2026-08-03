@@ -1,0 +1,71 @@
+name: Verify
+
+# This tool makes clinical claims, so the gates are not only "does it compile".
+# Three distinct classes of failure are checked, because each has already
+# happened at least once in this repo:
+#
+#   scoring   the symptom-to-type mappings drift (pinned exactly in a golden
+#             table, because ranking tests alone are robust to single
+#             mis-mappings and so cannot guard the attributions), or a textbook
+#             presentation stops ranking correctly
+#   controls  a regression test goes green for a reason unrelated to what it
+#             claims to test (three of four did, on the first pass)
+#   claims    a corrected clinical claim survives in the shipped prose after the
+#             data layer was fixed (two did, in the Sources page)
+#
+# They run as separate steps rather than one `npm run verify` so the failing
+# class is visible from the job summary without opening the log.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Build and verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Vite 5 requires Node 18+. Pinned to 20 LTS rather than `latest` so a
+          # new Node release cannot break the build without an explicit change.
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Verify scoring
+        # Data integrity, plus textbook DLB/AD/bvFTD/vascular/PPA/PCA
+        # presentations ranking correctly in BOTH the quick and full item sets.
+        run: npm run verify:scoring
+
+      - name: Verify negative controls
+        # Reintroduces each fixed defect in memory and confirms the
+        # corresponding check goes red, then restores. A regression test that
+        # has never been seen to fail is not evidence of anything.
+        run: npm run verify:controls
+
+      - name: Verify shipped claims
+        # Greps the shipped source for retracted clinical claims and for the
+        # corrections that must remain documented user-visibly. Catches the case
+        # where the data is right but the methodology page still asserts the
+        # error.
+        run: npm run verify:claims

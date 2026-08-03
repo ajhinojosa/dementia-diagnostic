@@ -5,7 +5,12 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "verify:scoring": "node scripts/verify-scoring.mjs",
+    "verify:controls": "node scripts/negative-control.mjs",
+    "verify:claims": "node scripts/verify-claims.mjs",
+    "verify": "npm run verify:scoring && npm run verify:controls && npm run verify:claims",
+    "check": "npm run build && npm run verify"
   },
   "dependencies": {
     "react": "^18.2.0",

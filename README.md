@@ -73,13 +73,27 @@ Severity is anchored to what the person can still do ("needs reminders" / "needs
 npm install
 npm run dev
 
-node scripts/verify-scoring.mjs    # data integrity + canonical presentations
-node scripts/negative-control.mjs  # confirms each check fails when its target is broken
+npm run check      # build + all three gates (what CI runs)
+npm run verify     # the three gates only
 ```
 
-`verify-scoring.mjs` asserts that textbook presentations rank correctly in both modes and that the
-specific defects listed below stay fixed. `negative-control.mjs` reintroduces each defect in memory
-and confirms the corresponding check goes red — a regression test never seen to fail is not evidence.
+| Gate | Guards against |
+|---|---|
+| `verify:scoring` | Symptom→type mappings drifting, and textbook presentations misranking in either mode |
+| `verify:controls` | A regression test passing for a reason unrelated to what it claims to test |
+| `verify:claims` | A corrected clinical claim surviving in the shipped prose after the data was fixed |
+
+`verify:scoring` pins the criteria-derived attributions **exactly**, in a golden-mapping table.
+Ranking tests alone are robust to single mis-mappings by design — a textbook DLB profile still ranks
+LBD first if one of its five core features is wrongly reattributed — which makes them useless as a
+guard on the attributions themselves. Since wrong attributions were the original defect, each
+criteria-derived mapping and item kind is asserted individually. Changing one requires changing the
+table, which should require citing the criteria.
+
+`verify:controls` reintroduces each fixed defect in memory and confirms the corresponding check goes
+red — a regression test never seen to fail is not evidence of anything.
+
+CI runs all of it on push and PR to `main` (`.github/workflows/verify.yml`).
 
 ## Sources
 
