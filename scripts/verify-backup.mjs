@@ -8,6 +8,8 @@
 
 import { buildExport, exportFilename, parseImport, EXPORT_KIND } from '../src/backup.js';
 import { SCHEMA_VERSION } from '../src/migrate.js';
+import { computeScores } from '../src/scoring.js';
+import { globalSymptoms } from '../src/data/symptoms.js';
 
 let failures = 0;
 const check = (name, cond, detail = '') => {
@@ -111,6 +113,63 @@ console.log('\n== Export shape ==');
   check('carries kind and current version', e.kind === EXPORT_KIND && e.version === SCHEMA_VERSION);
   check('carries an export timestamp', typeof e.exportedAt === 'string' && e.exportedAt.includes('T'));
   check('carries every section', ['symptomData','medicalHistory','adlData','redFlagData','mode'].every(k => k in e));
+}
+
+
+// ---------------------------------------------------------------
+console.log('\n== v3 -> v4: the retired mem9 compound ==');
+
+// mem9 read "memory is the main problem AND onset after 80 AND slower than
+// expected". Anyone who used the tool before this revision has it in their
+// saved data. Dropping it would silently lose three answers; assigning it to
+// one replacement would silently lose two. Checking a conjunction is an
+// assertion of every conjunct, so it expands into all three.
+{
+  const legacy = {
+    version: 3,
+    symptomData: {
+      mem1: { checked: true },
+      mem9: { checked: true },
+    },
+    medicalHistory: { patientName: 'Legacy Case' },
+    adlData: {},
+    redFlagData: {},
+  };
+  const res = parseImport(JSON.stringify(legacy));
+  check('a v3 file containing mem9 still imports', res.ok, res.error);
+
+  const ids = Object.keys(res.data?.symptomData ?? {});
+  check('mem9 expands into all three replacements',
+    ['mem10', 'mem11', 'onset8'].every((id) => ids.includes(id)),
+    `got ${ids.join(', ')}`);
+  check('mem9 itself does not survive as a scored item', !ids.includes('mem9'));
+  check('unrelated items are untouched', ids.includes('mem1'));
+
+  // The expansion must actually score, or it was a cosmetic migration.
+  const scores = computeScores(res.data.symptomData, globalSymptoms);
+  check('the migrated profile satisfies LATE criteria it previously could not',
+    scores.late.core >= 3, `LATE criteria met: ${scores.late.core}/${scores.late.maxCore}`);
+
+  // A direct answer must beat the derived one regardless of key order. All
+  // three replacements are course/context items, which expose no modifiers, so
+  // the only state that can differ is checked/not-reported -- and that is the
+  // case that matters: a derived value is an inference from a retired
+  // question, so a later "not reported" must clear it rather than lose to it.
+  const conflicting = {
+    version: 3,
+    symptomData: {
+      mem9:  { checked: true },
+      mem11: { checked: false },
+    },
+    medicalHistory: {}, adlData: {}, redFlagData: {},
+  };
+  const res2 = parseImport(JSON.stringify(conflicting));
+  check('a direct "not reported" clears the split-derived value',
+    res2.data?.symptomData?.mem11 === undefined,
+    JSON.stringify(res2.data?.symptomData?.mem11));
+  check('...without disturbing the other two replacements',
+    res2.data?.symptomData?.mem10?.checked === true &&
+    res2.data?.symptomData?.onset8?.checked === true);
 }
 
 console.log(failures === 0 ? '\n✅ Export/import round-trips without loss\n' : `\n❌ ${failures} failure(s)\n`);

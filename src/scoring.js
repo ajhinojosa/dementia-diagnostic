@@ -19,7 +19,20 @@
 // orders by that proportion adjusted by a compressed prevalence prior. Both
 // numbers are surfaced separately in the UI so the adjustment is never hidden.
 
+// 3. Core evidence was `coreMatched / coreTotal` over CHECKBOXES, so a type's
+//    score depended on how finely its criteria had been chopped into questions.
+//    On plain amnestic memory loss -- the commonest presentation in dementia --
+//    LATE beat Alzheimer's 59.4 to 45.7 on the two items that are AD's OWN core
+//    criteria, purely because 2/3 > 2/4. The gap then fell just outside the
+//    contention band, so the prevalence prior that exists to break exactly this
+//    tie was never allowed to run.
+//
+//    Core evidence is now counted per CRITERION (see data/criteria.js), which
+//    is the unit published criteria actually use. Splitting or merging
+//    questions no longer moves any ranking.
+
 import { dementiaTypes, EVIDENCE_WEIGHTS, AGAINST_WEIGHT, typeKeys } from './data/dementiaTypes.js';
+import { evaluateCriteria, criteriaItemIds } from './data/criteria.js';
 
 const isChecked = (symptomData, id) => Boolean(symptomData[id]?.checked);
 
@@ -35,18 +48,31 @@ const isChecked = (symptomData, id) => Boolean(symptomData[id]?.checked);
  */
 export function computeScores(symptomData, activeSymptoms) {
   const result = {};
+  const availableIds = new Set(activeSymptoms.map((s) => s.id));
 
   for (const type of typeKeys) {
     const relevant = activeSymptoms.filter((s) => s.types?.[type]);
     const counters = activeSymptoms.filter((s) => s.against?.includes(type));
 
-    let matchedWeight = 0;
-    let possibleWeight = 0;
-    let coreMatched = 0;
-    let coreTotal = 0;
-    let matchedCount = 0;
+    // ---- Core evidence: counted per CRITERION, not per checkbox ----
+    const criteria = evaluateCriteria(type, symptomData, availableIds);
+    const coreMatched = criteria.met;
+    const coreTotal = criteria.total;
+
+    // Every item that can satisfy a criterion is represented by that criterion
+    // and must NOT also be weighed individually. Otherwise an item sitting in a
+    // criterion group would earn twice, and -- because the weaker members of a
+    // group carry a per-item tier while the strongest often does not -- the
+    // weakest evidence would end up outweighing the strongest.
+    const inCriteria = criteriaItemIds(type);
+
+    let matchedWeight = EVIDENCE_WEIGHTS.core * coreMatched;
+    let possibleWeight = EVIDENCE_WEIGHTS.core * coreTotal;
+    let matchedCount = coreMatched;
 
     for (const symptom of relevant) {
+      if (inCriteria.has(symptom.id)) continue;
+
       const tier = symptom.types[type];
       const weight = EVIDENCE_WEIGHTS[tier] ?? 0;
 
@@ -61,12 +87,10 @@ export function computeScores(symptomData, activeSymptoms) {
       // mimic above the common disease on every amnestic presentation. That is
       // the original small-denominator bug reappearing in mirror image.
       if (tier !== 'common') possibleWeight += weight;
-      if (tier === 'core') coreTotal += 1;
 
       if (isChecked(symptomData, symptom.id)) {
         matchedWeight += weight;
         matchedCount += 1;
-        if (tier === 'core') coreMatched += 1;
       }
     }
 
@@ -95,8 +119,17 @@ export function computeScores(symptomData, activeSymptoms) {
       profileMatch,
       corePercentage,
 
+      // `core` / `maxCore` now count CRITERIA met and criteria askable in this
+      // mode, not checkboxes. Consumers reading them as "how much of this
+      // type's defining picture is present" get a truer answer than before.
       core: coreMatched,
       maxCore: coreTotal,
+      criteria,
+      // Whether the published threshold for the syndrome is reached (2 of 4
+      // core features for probable DLB, 3 of 6 for possible bvFTD, and so on).
+      // Surfaced rather than folded into the score, so the rule stays legible.
+      meetsThreshold: criteria.meetsThreshold,
+
       total: matchedCount,
       maxTotal: relevant.length,
 

@@ -9,6 +9,7 @@ import { redFlags } from '../src/data/redFlags.js';
 import { dementiaTypes, typeKeys, EVIDENCE_WEIGHTS } from '../src/data/dementiaTypes.js';
 import { ITEM_KINDS, getModifiersForKind, getModifiersFor, resolveImpactKey } from '../src/data/itemKinds.js';
 import { computeScores, rankTypes, assessConfidence } from '../src/scoring.js';
+import { TYPE_CRITERIA, criteriaItemIds, evaluateCriteria } from '../src/data/criteria.js';
 
 let failures = 0;
 const check = (name, condition, detail = '') => {
@@ -122,9 +123,13 @@ const GOLDEN = {
   sleep3: { lewy: 'supportive' },                             // excessive daytime sleepiness
   auto5:  { lewy: 'supportive' },                             // antipsychotic sensitivity (NOT a biomarker)
 
-  // Core for two diseases at once -- the case the old shared boolean could not express
-  mov1:   { lewy: 'core', vascular: 'core' },                 // gait: DLB parkinsonism + VASCOG A2a
-  exec4:  { lewy: 'core', pca: 'core', alzheimers: 'common' },// visuospatial: core twice, non-specific once
+  // DLB 2017 parkinsonism is satisfied by ONE of bradykinesia, rest tremor or
+  // rigidity. Rest tremor was previously supportive; gait was previously core.
+  // The 2017 revision restricts the cardinal features to those three, which
+  // excludes gait and postural signs as too non-specific in older people.
+  mov3:   { lewy: 'core' },                                   // rest tremor -- a cardinal feature
+  mov1:   { vascular: 'core', lewy: 'supportive' },           // gait: VASCOG A2a, NOT a DLB cardinal feature
+  exec4:  { pca: 'core', lewy: 'supportive', alzheimers: 'common' }, // visuoperceptual: PCA core; DLB cognitive profile, not a core feature
 
   // VASCOG 2014
   mov6:   { vascular: 'core', mixed: 'core' },                // A1a documented stroke + persistence
@@ -132,8 +137,10 @@ const GOLDEN = {
   auto2:  { vascular: 'core', mixed: 'supportive' },          // A2b early urinary -- previously under-weighted
   exec3:  { vascular: 'core', lewy: 'supportive', mixed: 'supportive' },
 
-  // Rascovsky 2011 bvFTD features I-VI
-  beh1:   { bvftd: 'core' },
+  // Rascovsky 2011 bvFTD features I-VI. beh1 ("a fundamentally different
+  // person") is a gateway question describing the syndrome, not one of the six
+  // named features, so it is supportive rather than core.
+  beh1:   { bvftd: 'supportive' },
   beh2:   { bvftd: 'core' },                                  // I disinhibition
   beh3:   { bvftd: 'core' },                                  // III loss of empathy
   beh4:   { bvftd: 'core' },                                  // IV perseverative/compulsive
@@ -145,15 +152,28 @@ const GOLDEN = {
   lang3:  { ppa: 'core' },                                    // semantic
   onset5: { ppa: 'core' },                                    // language-led for 1-2 years
 
-  // Crutch 2017 PCA
+  // Crutch 2017 PCA -- the core cognitive feature list (>=3 required)
   onset6: { pca: 'core' },
+  onset9: { pca: 'core' },                                    // relative sparing of memory/speech/behaviour
   exec5:  { pca: 'core', alzheimers: 'common' },
+  exec6:  { pca: 'core' },                                    // simultanagnosia
+  exec7:  { pca: 'core' },                                    // dressing apraxia
+  exec8:  { pca: 'core' },                                    // optic ataxia / space perception
+  exec9:  { pca: 'core' },                                    // acalculia / left-right disorientation
+  lang5:  { pca: 'core', ppa: 'supportive' },                 // apperceptive prosopagnosia -- on Crutch's core list
+
+  // Gorno-Tempini 2011 root inclusion criterion 2
+  lang6:  { ppa: 'core' },                                    // language is what impairs daily living
 
   // NIA-AA / LATE
   onset2: { alzheimers: 'core', late: 'supportive' },
+  onset7: { alzheimers: 'core', bvftd: 'common', ppa: 'common', pca: 'common', lewy: 'common' },
   mem1:   { alzheimers: 'core', late: 'core', mixed: 'supportive' },
   mem7:   { alzheimers: 'core', late: 'core', mixed: 'supportive' },
-  mem9:   { late: 'core', alzheimers: 'common' },
+  // mem9 retired: it packed three LATE criteria into one checkbox. Replaced by:
+  mem10:  { late: 'core', alzheimers: 'common' },             // memory predominant, others spared
+  mem11:  { late: 'core' },                                   // slower course than expected
+  onset8: { late: 'core', mixed: 'supportive' },              // onset after ~80
 
   // The corrected young-onset item: must NOT be bvFTD-only
   onset1: { bvftd: 'supportive', ppa: 'supportive', pca: 'supportive', alzheimers: 'common' },
@@ -210,10 +230,143 @@ for (const [id, expected] of Object.entries(GOLDEN_SCALES)) {
 }
 
 // ---------------------------------------------------------------
+console.log('\n== Criteria groups ==');
+
+// Core evidence is now counted per CRITERION, so the criteria table is the
+// thing that must be pinned. Getting these wrong is invisible to ranking tests
+// for the same reason single mis-mappings were.
+const GOLDEN_CRITERIA = {
+  // type        features  published threshold
+  alzheimers:  [4, 4],   // NIA-AA: insidious + progressive + amnestic + second domain (all required)
+  late:        [4, 3],   // Wolk 2025 amnestic-predominant profile
+  lewy:        [4, 2],   // DLB 2017: >=2 of 4 core clinical features for probable DLB
+  pca:         [3, 3],   // Crutch 2017: clinical + >=3 cognitive + sparing
+  ppa:         [3, 3],   // Gorno-Tempini 2011: three root inclusion criteria
+  bvftd:       [6, 3],   // Rascovsky 2011: >=3 of 6 for possible bvFTD
+  vascular:    [4, 2],   // VASCOG 2014
+  mixed:       [4, 2],
+};
+const allIds = new Set(globalSymptoms.map((s) => s.id));
+for (const [type, [featureCount, required]] of Object.entries(GOLDEN_CRITERIA)) {
+  const spec = TYPE_CRITERIA[type];
+  check(`${type} has ${featureCount} criteria features`,
+    spec?.features.length === featureCount, `got ${spec?.features.length}`);
+  check(`${type} threshold is ${required}`,
+    spec?.requiredMet === required, `got ${spec?.requiredMet}`);
+}
+
+check('every type in the registry has criteria defined',
+  typeKeys.every((t) => TYPE_CRITERIA[t]),
+  typeKeys.filter((t) => !TYPE_CRITERIA[t]).join(', '));
+
+check('every criteria feature cites a real symptom id',
+  Object.values(TYPE_CRITERIA).every((spec) =>
+    spec.features.every((f) => (f.any ?? f.of ?? []).every((id) => allIds.has(id)))),
+  Object.entries(TYPE_CRITERIA).flatMap(([t, spec]) =>
+    spec.features.flatMap((f) => (f.any ?? f.of ?? []).filter((id) => !allIds.has(id)).map((id) => `${t}.${f.id}:${id}`))).join(', '));
+
+check('every criteria feature is satisfiable (has at least one item)',
+  Object.values(TYPE_CRITERIA).every((spec) =>
+    spec.features.every((f) => (f.any ?? f.of ?? []).length >= (f.atLeast ?? 1))));
+
+check('a threshold can actually be reached (required <= features)',
+  Object.values(TYPE_CRITERIA).every((spec) => spec.requiredMet <= spec.features.length));
+
+// Every item tiered `core` for a type must be reachable through that type's
+// criteria -- otherwise it is labelled a core criterion in the UI while
+// contributing nothing to the core score, which is worse than mislabelling it.
+const orphanCore = [];
+for (const type of typeKeys) {
+  const inCriteria = criteriaItemIds(type);
+  for (const sym of globalSymptoms) {
+    if (sym.types?.[type] === 'core' && !inCriteria.has(sym.id)) orphanCore.push(`${type}:${sym.id}`);
+  }
+}
+check('every core-tiered item participates in its type\'s criteria',
+  orphanCore.length === 0, orphanCore.join(', '));
+
+// THE PROPERTY THE REWORK BUYS.
+//
+// Under the old engine, splitting one question into two changed every ranking
+// that involved its type, because core credit was counted per checkbox. That is
+// what let LATE (3 core boxes) outrank Alzheimer's (4 core boxes) on Alzheimer's
+// own criteria. Splitting a question must now be score-neutral: an added item
+// inside an existing OR-group is redundant evidence, not extra evidence.
+{
+  const profiles = [
+    ['mem1', 'mem7'],
+    ['mem5', 'hall1', 'mov2'],
+    ['beh2', 'beh3', 'eat1', 'onset4'],
+    ['mem1', 'mem3', 'mem7', 'onset2', 'onset7'],
+    ['onset6', 'onset9', 'exec4', 'exec6', 'exec8'],
+  ];
+  // Clone the symptom list with mov2 duplicated as a second rigidity question,
+  // and add it to DLB's parkinsonism group -- the exact edit that would have
+  // shifted every DLB ranking under the old engine.
+  const clone = symptomById.mov2;
+  const splitList = [...globalSymptoms, { ...clone, id: 'mov2b' }];
+  const originalGroup = TYPE_CRITERIA.lewy.features.find((f) => f.id === 'parkinsonism').any;
+
+  let allStable = true;
+  const drifted = [];
+  for (const ids of profiles) {
+    const before = rankFor(ids).ranked.order.join(',');
+    TYPE_CRITERIA.lewy.features.find((f) => f.id === 'parkinsonism').any = [...originalGroup, 'mov2b'];
+    const after = rankTypes(computeScores(checkedFrom(ids), splitList)).order.join(',');
+    TYPE_CRITERIA.lewy.features.find((f) => f.id === 'parkinsonism').any = originalGroup;
+    if (before !== after) { allStable = false; drifted.push(ids.join('+')); }
+  }
+  check('splitting a question into two does not change any ranking',
+    allStable, `drifted on: ${drifted.join(' | ')}`);
+}
+
+// The specific defect that motivated the rework.
+{
+  const amnestic = rankFor(['mem1', 'mem7']).ranked;
+  const s = computeScores(checkedFrom(['mem1', 'mem7']), globalSymptoms);
+  check('plain amnestic memory loss no longer ranks LATE above Alzheimer\'s',
+    amnestic.order.indexOf('alzheimers') < amnestic.order.indexOf('late'),
+    `order: ${amnestic.order.slice(0, 3).join(' > ')}`);
+  check('...because the two now score equally on symptom fit',
+    Math.abs(s.alzheimers.evidenceScore - s.late.evidenceScore) < 0.001,
+    `AD ${s.alzheimers.evidenceScore.toFixed(1)} vs LATE ${s.late.evidenceScore.toFixed(1)}`);
+  check('...and LATE still wins once its own discriminators are present',
+    rankFor(['mem1', 'mem7', 'mem10', 'mem11', 'onset8']).ranked.order[0] === 'late',
+    rankFor(['mem1', 'mem7', 'mem10', 'mem11', 'onset8']).ranked.order[0]);
+}
+
+// DLB 2017 requires only ONE cardinal parkinsonian feature, so rest tremor
+// alone and rigidity alone must score identically.
+{
+  const tremor = computeScores(checkedFrom(['mem5', 'hall1', 'mov3']), globalSymptoms).lewy;
+  const rigid = computeScores(checkedFrom(['mem5', 'hall1', 'mov2']), globalSymptoms).lewy;
+  check('rest tremor and rigidity each satisfy parkinsonism identically',
+    Math.abs(tremor.evidenceScore - rigid.evidenceScore) < 0.001,
+    `tremor ${tremor.evidenceScore.toFixed(1)} vs rigidity ${rigid.evidenceScore.toFixed(1)}`);
+  check('...and both reach the 2-of-4 threshold for probable DLB',
+    tremor.meetsThreshold && rigid.meetsThreshold);
+  const both = computeScores(checkedFrom(['mem5', 'hall1', 'mov2', 'mov3']), globalSymptoms).lewy;
+  check('having both does not double-count one feature',
+    Math.abs(both.evidenceScore - rigid.evidenceScore) < 0.001,
+    `both ${both.evidenceScore.toFixed(1)} vs one ${rigid.evidenceScore.toFixed(1)}`);
+}
+
+// ---------------------------------------------------------------
 console.log('\n== Quick screen ==');
 
-check(`quick screen is 15-25 items (is ${quickSymptoms.length})`,
-  quickSymptoms.length >= 15 && quickSymptoms.length <= 25);
+// Grew from 31 to 36 when criteria coverage was balanced: a type whose
+// criteria cannot be ASKED in quick mode has them excluded from its
+// denominator, which silently inflates the ones that remain.
+check(`quick screen is 20-40 items (is ${quickSymptoms.length})`,
+  quickSymptoms.length >= 20 && quickSymptoms.length <= 40);
+
+const quickCriteria = typeKeys.map((t) => [t, evaluateCriteria(t, {}, new Set(quickSymptoms.map((s) => s.id))).total]);
+check('every type has at least 2 askable criteria in the quick screen',
+  quickCriteria.every(([, n]) => n >= 2),
+  quickCriteria.filter(([, n]) => n < 2).map(([t, n]) => `${t}:${n}`).join(', '));
+check('every type except mixed has at least 3 askable criteria in the quick screen',
+  quickCriteria.filter(([t, n]) => n < 3).every(([t]) => t === 'mixed'),
+  quickCriteria.filter(([, n]) => n < 3).map(([t, n]) => `${t}:${n}`).join(', '));
 
 const quickCoverage = typeKeys.filter((t) => quickSymptoms.some((s) => s.types[t] === 'core'));
 check('every type has a core item in the quick screen',
@@ -315,26 +468,60 @@ console.log('\n== Regressions the rewrite exists to fix ==');
   check('prior DOES break the plain AD-vs-LATE tie in favour of the commoner AD',
     amnestic.ranked.withEvidence[0] === 'alzheimers',
     `got ${amnestic.ranked.withEvidence[0]}`);
-  check('...and the tie was genuinely close (both inside the contention band)',
-    amnestic.ranked.contenders.includes('alzheimers') && amnestic.ranked.contenders.includes('late'));
+  // With insidious onset added, AD now satisfies 2 of its 4 criteria against
+  // LATE's 1 of 4, so AD leads on symptom fit alone and the prior is not even
+  // needed. Assert the ordering, not the mechanism that produces it -- the old
+  // version of this check asserted "both inside the contention band", which
+  // silently became a test of the tie rather than of the outcome.
+  check('...and AD now leads on symptom fit alone, not only via the prior',
+    amnestic.scores.alzheimers.evidenceScore > amnestic.scores.late.evidenceScore,
+    `AD ${amnestic.scores.alzheimers.evidenceScore.toFixed(1)} vs LATE ${amnestic.scores.late.evidenceScore.toFixed(1)}`);
 
-  // ...but the prior must NOT suppress LATE when its own defining item is
-  // present. mem9 ("began after 80, slower than expected") is the whole reason
-  // LATE is in the tool; if that is checked, LATE should win outright.
-  const lateSpecific = rankFor(['mem1', 'mem7', 'onset2', 'mem9']);
-  check('LATE wins outright once its defining item is checked',
+  // ...but the prior must NOT suppress LATE when its own defining features are
+  // present. These are the three criteria unpacked from the retired mem9
+  // compound; they are the whole reason LATE is in the tool.
+  const lateSpecific = rankFor(['mem1', 'mem7', 'onset2', 'mem10', 'mem11', 'onset8']);
+  check('LATE wins outright once its own discriminators are checked',
     lateSpecific.ranked.withEvidence[0] === 'late',
     `got ${lateSpecific.ranked.withEvidence[0]}`);
+
+  // Each of the three former conjuncts must be independently answerable --
+  // that was the point of retiring mem9.
+  for (const id of ['mem10', 'mem11', 'onset8']) {
+    check(`${id} scores for LATE on its own`,
+      computeScores(checkedFrom([id]), globalSymptoms).late.core === 1);
+  }
 }
 
-// Visuospatial impairment must NOT give AD the same credit it gives LBD/PCA.
+// Visuoperceptual impairment: core for PCA, part of DLB's typical cognitive
+// PROFILE rather than one of its four core clinical features, and a late
+// non-specific finding in typical AD. Three different weights, one symptom --
+// the case the old shared boolean could not express.
 {
   const scores = computeScores(checkedFrom(['exec4']), globalSymptoms);
   const s = symptomById.exec4;
-  check('visuospatial impairment is core for LBD and PCA but non-specific for AD',
-    s.types.lewy === 'core' && s.types.pca === 'core' && s.types.alzheimers === 'common');
-  check('...and that asymmetry shows up in the score',
-    scores.lewy.core === 1 && scores.alzheimers.core === 0);
+  check('visuoperceptual impairment is core for PCA, supportive for LBD, non-specific for AD',
+    s.types.pca === 'core' && s.types.lewy === 'supportive' && s.types.alzheimers === 'common',
+    JSON.stringify(s.types));
+  // One posterior deficit satisfies nobody's core criterion: PCA needs three,
+  // DLB counts it as supportive only, and AD's second-domain criterion is
+  // gated on there being a first domain.
+  check('one posterior deficit alone satisfies no type\'s core criterion',
+    scores.pca.core === 0 && scores.lewy.core === 0 && scores.alzheimers.core === 0,
+    `pca ${scores.pca.core} lewy ${scores.lewy.core} ad ${scores.alzheimers.core}`);
+  check('...but it still corroborates DLB as a supportive finding',
+    scores.lewy.profileMatch > 0);
+
+  // Three of them DO satisfy PCA's threshold, and still give AD nothing.
+  const three = computeScores(checkedFrom(['exec4', 'exec6', 'exec8']), globalSymptoms);
+  check('three posterior deficits satisfy PCA\'s "at least three" criterion',
+    three.pca.criteria.available.find((f) => f.id === 'posteriorCognitive')?.satisfied === true);
+  check('...and a purely visual presentation gives Alzheimer\'s no core criterion',
+    three.alzheimers.core === 0, `AD core ${three.alzheimers.core}`);
+  // ...but once memory IS impaired, the second-domain criterion unlocks.
+  const withMemory = computeScores(checkedFrom(['mem1', 'exec4']), globalSymptoms);
+  check('a second domain counts only once a first domain is present',
+    withMemory.alzheimers.criteria.available.find((f) => f.id === 'secondDomain')?.satisfied === true);
 }
 
 // Age 80+ must no longer hand Mixed a free point. Note this is a data-content

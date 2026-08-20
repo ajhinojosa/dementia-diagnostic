@@ -45,6 +45,17 @@ const RETRACTED = [
   { what: 'old per-symptom discriminating flag in data', needle: 'discriminating: true', skip: ['src/App.jsx', 'README.md'] },
   { what: 'old onset option values', needle: "value: \"1month\"" },
   { what: 'removed Mixed item "Age 80+" as a scored symptom', needle: "id: 'mixed10'" },
+
+  // --- corrections from the criteria rework ---
+  {
+    what: 'visuospatial impairment still called a CORE feature of DLB',
+    needle: 'is a core feature of dementia with Lewy bodies',
+  },
+  {
+    what: 'the retired triple-barrelled LATE item',
+    needle: 'it began after about age 80, and it has crept along',
+  },
+  { what: 'stale mem9 reference in scored data', needle: "id: 'mem9'" },
 ];
 
 // Corrections that must be documented somewhere user-visible, not just in code
@@ -60,6 +71,13 @@ const MUST_DOCUMENT = [
   { what: 'question kinds explained', needle: 'Question types', file: 'src/App.jsx' },
   { what: 'limits stated', needle: 'What this tool will not do', file: 'src/App.jsx' },
   { what: 'README documents corrections', needle: 'Corrections made in the', file: 'README.md' },
+
+  // --- criteria rework must be explained where users can see it ---
+  { what: 'criteria-based core scoring explained', needle: 'Core evidence is counted per', file: 'src/App.jsx' },
+  { what: 'the DLB 2-of-4 threshold stated', needle: '2 of 4 core clinical features', file: 'src/App.jsx' },
+  { what: 'the AD-vs-LATE defect disclosed', needle: 'LATE outranked Alzheimer', file: 'src/App.jsx' },
+  { what: 'parkinsonism grouping explained', needle: 'Rest tremor and rigidity both satisfy', file: 'src/App.jsx' },
+  { what: 'README documents the criteria rework', needle: 'Core evidence is counted per criterion', file: 'README.md' },
 ];
 
 let failures = 0;

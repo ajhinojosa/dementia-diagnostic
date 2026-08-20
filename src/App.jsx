@@ -1163,8 +1163,9 @@ export default function App() {
           <p style={{ fontSize: '14px', marginBottom: '15px', lineHeight: '1.6' }}>
             An earlier version of this tool used a single <em>discriminating: true/false</em> flag per symptom, shared
             across every type that symptom mapped to. That could not express, for example, that visuospatial impairment
-            is a core feature of dementia with Lewy bodies and posterior cortical atrophy but a late, non-specific
-            finding in typical Alzheimer's — so all three received identical credit.
+            is a core defining feature of posterior cortical atrophy, part of the typical cognitive profile in dementia
+            with Lewy bodies, and a late non-specific finding in typical Alzheimer's — so all three received identical
+            credit.
           </p>
 
           <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '10px' }}>Scoring approach</h3>
@@ -1173,6 +1174,20 @@ export default function App() {
             present. Non-specific findings corroborate when present but are excluded from the denominator, since not
             having them should not count against a type. Types are then ordered by profile match combined with how many
             of their core criteria are met.
+          </p>
+          <p style={{ fontSize: '14px', marginBottom: '10px', lineHeight: '1.6' }}>
+            Core evidence is counted per <strong>criterion</strong>, not per question. Published criteria are threshold
+            rules over named features — probable Lewy body dementia needs 2 of 4 core clinical features, possible bvFTD
+            needs 3 of 6 — and several questions here can satisfy one feature. Rest tremor and rigidity both satisfy the
+            single parkinsonism feature, exactly as the 2017 consortium specifies, so someone with rigidity alone is not
+            scored as having half a feature.
+          </p>
+          <p style={{ fontSize: '14px', marginBottom: '15px', lineHeight: '1.6' }}>
+            This matters more than it sounds. Counting checkboxes made a type's score depend on how finely its criteria
+            had been split into questions. On plain amnestic memory loss — the commonest presentation in dementia —
+            LATE outranked Alzheimer's on the two items that are Alzheimer's <em>own</em> core criteria, purely because
+            it had three core boxes to Alzheimer's four. Counting criteria instead makes the ranking independent of how
+            the questions were written.
           </p>
           <p style={{ fontSize: '14px', marginBottom: '15px', lineHeight: '1.6' }}>
             This replaced a ranking based on raw counts of discriminating symptoms. Because the number of such symptoms
@@ -1969,6 +1984,39 @@ export default function App() {
                         <div className="score-bar">
                           <div className="score-fill" style={{ width: `${score.profileMatch}%`, background: info.color }} />
                         </div>
+                        {/* The published threshold, stated rather than folded into the
+                            number. "2 of 4 core features" is a rule a clinician can check;
+                            a percentage is not. */}
+                        {score.meetsThreshold && (
+                          <div style={{
+                            fontFamily: "'DM Sans', sans-serif",
+                            fontSize: '11px',
+                            color: info.color,
+                            marginTop: '5px',
+                            fontWeight: '600'
+                          }}>
+                            Meets {score.criteria.thresholdLabel}
+                          </div>
+                        )}
+                        {isLeader && score.criteria?.available?.length > 0 && (
+                          <div style={{
+                            fontFamily: "'DM Sans', sans-serif",
+                            fontSize: '11px',
+                            color: '#8B8680',
+                            marginTop: '5px',
+                            lineHeight: '1.5'
+                          }}>
+                            {score.criteria.available.map((f) => (
+                              <div key={f.id}>
+                                <span style={{ color: f.satisfied ? info.color : '#C8C4BC', fontWeight: '600' }}>
+                                  {f.satisfied ? '✓' : '○'}
+                                </span>{' '}
+                                {f.label}
+                                {f.needed > 1 && ` (${f.have} of ${f.needed} needed)`}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                         {score.counterEvidence.length > 0 && (
                           <div style={{
                             fontFamily: "'DM Sans', sans-serif",

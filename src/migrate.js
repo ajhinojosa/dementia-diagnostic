@@ -13,7 +13,16 @@ import { symptomById } from './data/symptoms.js';
 import { getModifiersFor, resolveImpactKey } from './data/itemKinds.js';
 
 export const STORAGE_KEY = 'dementiaAssessmentData';
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
+
+// v3 -> v4 retired mem9, a single checkbox reading "Memory is clearly the main
+// problem, it began after about age 80, AND it has crept along more slowly than
+// expected". Checking a conjunction is an assertion of every conjunct, so a
+// checked mem9 expands into all three replacements rather than being dropped or
+// arbitrarily assigned to one of them. Modifier values are copied to each.
+const SPLIT_ITEMS = {
+  mem9: ['mem10', 'mem11', 'onset8'],
+};
 
 const ONSET_MAP = {
   '1month': 'm1',
@@ -86,10 +95,31 @@ function migrateSymptomEntry(id, entry) {
 export function migrateSavedData(parsed) {
   if (!parsed || typeof parsed !== 'object') return null;
 
+  const source = Object.entries(parsed.symptomData ?? {});
   const symptomData = {};
-  for (const [id, entry] of Object.entries(parsed.symptomData ?? {})) {
+
+  // Pass 1: expand retired compound items into their replacements.
+  const derived = new Set();
+  for (const [id, entry] of source) {
+    for (const targetId of SPLIT_ITEMS[id] ?? []) {
+      const migrated = migrateSymptomEntry(targetId, entry);
+      if (migrated) {
+        symptomData[targetId] = migrated;
+        derived.add(targetId);
+      }
+    }
+  }
+
+  // Pass 2: anything the file answers directly is authoritative, whatever the
+  // key order. A derived value is an inference from a retired question; a
+  // direct answer is what the user actually said, so it wins -- including when
+  // it says "not reported", which must clear the inference rather than lose to
+  // it.
+  for (const [id, entry] of source) {
+    if (SPLIT_ITEMS[id]) continue;
     const migrated = migrateSymptomEntry(id, entry);
     if (migrated) symptomData[id] = migrated;
+    else if (derived.has(id)) delete symptomData[id];
   }
 
   return {

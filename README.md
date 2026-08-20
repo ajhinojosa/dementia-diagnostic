@@ -32,8 +32,9 @@ Each symptom is graded **per type**, because the same finding can be decisive fo
 meaningless for another:
 
 ```js
-// Visuospatial impairment: core for LBD and PCA, non-specific for typical AD.
-types: { lewy: 'core', pca: 'core', alzheimers: 'common' }
+// Visuoperceptual impairment: core for PCA, part of DLB's typical cognitive
+// profile rather than one of its four core features, non-specific in typical AD.
+types: { pca: 'core', lewy: 'supportive', alzheimers: 'common' }
 ```
 
 - **core** (weight 3) — a formal criterion in the published consensus criteria
@@ -43,6 +44,32 @@ types: { lewy: 'core', pca: 'core', alzheimers: 'common' }
 **Profile match** = weighted share of a type's *defining* features that are present. Non-specific
 findings corroborate when present but are excluded from the denominator, since not having them
 shouldn't count against a type.
+
+### Core evidence is counted per criterion, not per question
+
+Published criteria are threshold rules over *named features*, not proportions over question lists:
+
+| | threshold |
+|---|---|
+| probable DLB | ≥ 2 of 4 core clinical features |
+| possible bvFTD | ≥ 3 of 6 behavioural/cognitive features |
+| PCA | clinical + ≥ 3 posterior cognitive deficits + sparing |
+| probable AD | insidious + progressive + amnestic + a second domain |
+
+`src/data/criteria.js` encodes those features, and several questions can satisfy one of them. DLB's
+parkinsonism feature is satisfied by rest tremor **or** rigidity/bradykinesia, exactly as the 2017
+consortium specifies — so someone with rigidity alone is not scored as having half a feature.
+
+This replaced `coreMatched / coreTotal` over checkboxes, which made a type's score depend on how
+finely its criteria had been split into questions. On plain amnestic memory loss — the commonest
+presentation in dementia — LATE beat Alzheimer's 59.4 to 45.7 on the two items that are Alzheimer's
+*own* core criteria, purely because it had three core boxes to Alzheimer's four. The gap then fell
+just outside the contention band, so the prevalence prior that exists to break exactly that tie was
+never allowed to run. The two now score identically on that profile, and the prior decides.
+
+A feature may also declare `requires`, for criteria phrased relative to another: NIA-AA's
+*second* domain only counts once a first domain is present, so a purely visual presentation no
+longer hands Alzheimer's a satisfied criterion.
 
 **Prevalence** is used only as a tie-breaker, among types within 20% of each other on symptom
 evidence, and the UI states when it changed the order. Outside that band evidence alone decides — a
@@ -160,9 +187,39 @@ The symptom set was audited against the primary criteria papers. These were wron
   universal (91% of 2,695 brains in six pooled autopsy cohorts carried >1 of six pathologies), and a
   near-universal finding carries almost no discriminating power.
 
-Two structural defects were also fixed: `discriminating` was one boolean per symptom shared across
-every type it mapped to, and ranking used raw counts across unequal denominators — which
-structurally favoured the rarest diseases over the commonest.
+### Criteria audit, second pass
+
+A follow-up audit of the types with the thinnest core sets found four more problems:
+
+- **Visuospatial impairment was core for DLB.** In DLB 2017 disproportionate visuoperceptual
+  impairment describes the *essential* criterion's typical cognitive profile — it is not one of the
+  four core clinical features. Downgraded to supportive.
+- **Shuffling/freezing gait was core for DLB.** The 2017 revision restricts cardinal parkinsonism to
+  bradykinesia, rest tremor and rigidity, deliberately excluding gait and postural signs as too
+  non-specific in older people. Downgraded to supportive; it remains core for vascular disease,
+  where VASCOG A2a names early gait disturbance directly.
+- **Rest tremor was only supportive for DLB.** It is one of the three cardinal features, any one of
+  which satisfies the parkinsonism criterion. Upgraded to core.
+- **Prosopagnosia was only supportive for PCA.** Apperceptive prosopagnosia is on Crutch 2017's core
+  cognitive feature list. Upgraded.
+- **`beh1` ("a fundamentally different person") was core for bvFTD.** It describes the syndrome
+  rather than naming one of Rascovsky's six features, which are scored individually. Downgraded to
+  supportive and kept as a gateway question.
+- **`mem9` packed three LATE criteria into one checkbox** — memory-predominant *and* onset after 80
+  *and* slower than expected. Someone aged 82 with memory-predominant but fast decline could only
+  overclaim all three or lose all three, and it was the sole item separating LATE from Alzheimer's.
+  Split into `mem10`, `mem11` and `onset8`. Saved data migrates by expanding a checked `mem9` into
+  all three, since checking a conjunction asserts every conjunct.
+
+Missing criteria were added: NIA-AA's *clear-cut history of worsening* and *second affected domain*
+for AD; the *relative sparing of non-memory domains* that is the central LATE-vs-AD discriminator in
+Wolk 2025; four more of Crutch's sixteen posterior cognitive features plus the PCA sparing
+criterion; and Gorno-Tempini's requirement that language be what impairs daily living.
+
+Three structural defects were fixed: `discriminating` was one boolean per symptom shared across
+every type it mapped to; ranking used raw counts across unequal denominators, which structurally
+favoured the rarest diseases over the commonest; and core evidence was counted per checkbox rather
+than per criterion.
 
 ## Medical disclaimer
 

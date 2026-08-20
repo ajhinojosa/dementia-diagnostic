@@ -17,6 +17,7 @@
 //   Sachdev et al., VASCOG statement, Alzheimer Dis Assoc Disord 2014
 //   NIA-AA criteria; Crutch et al. PCA consensus, Alz & Dem 2017
 //   Nelson et al., LATE consensus, Brain 2019;142:1503-27
+//   Wolk et al., clinical criteria for LATE, Alzheimer's & Dementia 2025;21:e14202
 //   Gorno-Tempini et al., PPA classification, Neurology 2011
 //   Bathgate et al., Acta Neurol Scand 2001 (FTD/AD/VaD behavioural discrimination)
 
@@ -103,14 +104,33 @@ export const globalSymptoms = [
     evidence:
       'VASCOG 2014 criterion A2: decline prominent in speed of information processing and complex attention. Attention is also disproportionately affected in DLB relative to memory.',
   },
+  // mem9 was retired here. It read "Memory is clearly the main problem, it
+  // began after about age 80, AND it has crept along more slowly than
+  // expected" -- three independent criteria behind one checkbox. Someone aged
+  // 82 with memory-predominant but fast decline had to either overclaim all
+  // three or lose all three, and it was the only thing separating LATE from
+  // Alzheimer's. Replaced by mem10, mem11 and onset8, each answerable alone.
+  // Migration expands a checked mem9 into all three, since checking a
+  // conjunction is an assertion of every conjunct.
   {
-    id: 'mem9',
+    id: 'mem10',
     category: 'Memory & Learning',
     kind: 'course',
-    text: 'Memory is clearly the main problem, it began after about age 80, and it has crept along more slowly than expected',
+    quick: true,
+    text: 'Memory is far and away the main problem — planning, language and spatial skills are much less affected',
     types: { late: 'core', alzheimers: 'common' },
     evidence:
-      'LATE consensus (Brain 2019): an amnestic syndrome of the oldest old that mimics AD but typically progresses more slowly. Found in roughly 40% of brains past age 85. Cannot be confirmed in life outside research settings — flagging it matters mainly because it changes what to expect about pace.',
+      'Wolk et al. 2025 (Alz & Dem), clinical criteria for LATE: the central discriminator from AD. LATE predominantly affects memory, where AD involves the wider range of executive, language and visuospatial function. Until this item existed the tool had no way to express relative SPARING of a domain, which left LATE and AD near-indistinguishable by construction.',
+  },
+  {
+    id: 'mem11',
+    category: 'Memory & Learning',
+    kind: 'course',
+    quick: true,
+    text: 'Decline has been unusually slow — gradual change over many years rather than a steady visible slide',
+    types: { late: 'core' },
+    evidence:
+      'LATE consensus (Brain 2019) and Wolk 2025: isolated LATE follows a slower trajectory than AD. Note the exception — when LATE and AD coexist the course is FASTER than either alone, so a slow course argues for LATE while a fast one does not rule it out.',
   },
 
   // ------------------------------------------------------------------
@@ -129,6 +149,7 @@ export const globalSymptoms = [
     id: 'exec2',
     category: 'Planning & Problem-Solving',
     kind: 'deficit',
+    quick: true,
     text: 'Cannot organise, plan ahead or sequence a task — a familiar recipe now falls apart',
     types: { bvftd: 'core', vascular: 'core', alzheimers: 'common', mixed: 'common' },
     evidence:
@@ -148,10 +169,11 @@ export const globalSymptoms = [
     id: 'exec4',
     category: 'Planning & Problem-Solving',
     kind: 'deficit',
+    quick: true,
     text: 'Misjudges distances, cannot read an analogue clock, cannot assemble or fit things together',
-    types: { lewy: 'core', pca: 'core', alzheimers: 'common' },
+    types: { pca: 'core', lewy: 'supportive', alzheimers: 'common' },
     evidence:
-      'DLB 2017: visual-processing deficits are disproportionate relative to memory and naming, and appear earlier than in AD. Core defining feature of PCA. Occurs in typical AD too, but late and non-specifically — hence "common" for AD, not core.',
+      'Crutch 2017: space perception deficit and constructional dyspraxia are both on the PCA core cognitive list. CORRECTION: previously core for DLB. In DLB 2017 disproportionate visuoperceptual impairment describes the ESSENTIAL criterion’s typical cognitive profile — it is not one of the four core clinical features — so it is supportive there. Non-specific for AD on its own, but it can satisfy the NIA-AA second-domain criterion (see criteria.js).',
   },
   {
     id: 'exec5',
@@ -161,6 +183,49 @@ export const globalSymptoms = [
     types: { pca: 'core', alzheimers: 'common' },
     evidence:
       'Crutch et al. PCA consensus 2017: progressive loss of higher-order visual function with preserved primary vision. People are typically sent round optometrists for years before anyone considers a neurological cause.',
+  },
+  // Crutch 2017 names sixteen core cognitive features and requires at least
+  // three. The tool previously carried about three and a half of them, which
+  // is why PCA had the thinnest core of any type -- and only ONE core item in
+  // quick mode, where a single checkbox swung it 76 points. The four below are
+  // the ones a family member can actually answer without testing.
+  {
+    id: 'exec6',
+    category: 'Planning & Problem-Solving',
+    kind: 'deficit',
+    quick: true,
+    text: 'Can only take in one thing at a time — misses objects in plain sight, or cannot find an item on a cluttered table',
+    types: { pca: 'core' },
+    evidence:
+      'Crutch 2017: simultanagnosia, the second most frequent core cognitive feature of PCA. Worded around a everyday scene because the clinical test (Navon figures, Cookie Theft) means nothing to a caregiver.',
+  },
+  {
+    id: 'exec7',
+    category: 'Planning & Problem-Solving',
+    kind: 'deficit',
+    text: 'Cannot work out how to put clothes on — inside out, back to front, or lost in a sleeve',
+    types: { pca: 'core' },
+    evidence:
+      'Crutch 2017: dressing apraxia, on the core cognitive feature list. Distinctive because it appears while the person can still explain exactly what they are trying to do.',
+  },
+  {
+    id: 'exec8',
+    category: 'Planning & Problem-Solving',
+    kind: 'deficit',
+    quick: true,
+    text: 'Reaches past things when picking them up, or has become frightened of stairs, escalators and kerbs',
+    types: { pca: 'core' },
+    evidence:
+      'Crutch 2017: optic ataxia and space perception deficit. Stairs and escalators are the everyday situation where a space-perception deficit first becomes frightening, and are often the reason a family seeks help.',
+  },
+  {
+    id: 'exec9',
+    category: 'Planning & Problem-Solving',
+    kind: 'deficit',
+    text: 'Can no longer do simple arithmetic, or confuses left and right',
+    types: { pca: 'core' },
+    evidence:
+      'Crutch 2017: acalculia and left/right disorientation, both on the core cognitive feature list. Part of the Gerstmann cluster that accompanies parietal involvement in PCA.',
   },
 
   // ------------------------------------------------------------------
@@ -173,9 +238,9 @@ export const globalSymptoms = [
     scale: 'consequence', // personality change is not a task; what matters is the effect on those around them
     quick: true,
     text: 'Seems like a fundamentally different person than they used to be',
-    types: { bvftd: 'core' },
+    types: { bvftd: 'supportive' },
     evidence:
-      'Rascovsky 2011: early and progressive change in personality and conduct is the defining bvFTD presentation, typically preceding memory loss.',
+      'Rascovsky 2011: early and progressive change in personality and conduct is the defining bvFTD presentation, typically preceding memory loss. CORRECTION: previously core. This is a gateway question, not one of Rascovsky’s six features — it describes the syndrome rather than naming a criterion, and the six specific features (disinhibition, apathy, loss of empathy, perseveration, hyperorality, dysexecutive profile) are scored individually. Kept as a supportive prompt because it is how families usually describe bvFTD first.',
   },
   {
     id: 'beh2',
@@ -211,6 +276,7 @@ export const globalSymptoms = [
     id: 'beh5',
     category: 'Behaviour & Personality',
     kind: 'deficit',
+    quick: true,
     scale: 'consequence', // apathy: you prompt them, you do not help them do it
     text: 'Profound loss of drive — will sit all day unless prompted, no longer initiates anything they used to enjoy',
     types: { bvftd: 'core', vascular: 'supportive', alzheimers: 'common', mixed: 'common' },
@@ -278,9 +344,9 @@ export const globalSymptoms = [
     kind: 'deficit',
     quick: true,
     text: 'Walks differently — shuffling, small steps, feet seeming stuck to the floor, hesitating in doorways',
-    types: { lewy: 'core', vascular: 'core' },
+    types: { vascular: 'core', lewy: 'supportive' },
     evidence:
-      'DLB 2017 core feature: spontaneous parkinsonism. VASCOG 2014 A2a: early gait disturbance (small-step, magnetic, apraxic-ataxic or parkinsonian gait). A true core feature of both — the tool now credits both rather than sharing one flag.',
+      'VASCOG 2014 A2a: early gait disturbance (small-step, magnetic, apraxic-ataxic or parkinsonian gait) — a core marker of the subcortical small-vessel profile. CORRECTION: previously also core for DLB. The 2017 revision restricts cardinal parkinsonism to bradykinesia, rest tremor and rigidity, deliberately excluding gait and postural features because they are too non-specific in older people. Parkinsonian gait is common in DLB but does not by itself satisfy the parkinsonism core feature, so it is supportive there.',
   },
   {
     id: 'mov2',
@@ -297,10 +363,11 @@ export const globalSymptoms = [
     category: 'Movement & Physical',
     kind: 'deficit',
     scale: 'consequence', // a tremor is experienced, not performed
+    quick: true,
     text: 'Hands shake when resting in their lap',
-    types: { lewy: 'supportive' },
+    types: { lewy: 'core' },
     evidence:
-      'Part of the DLB parkinsonism picture, but rest tremor is markedly less prominent in DLB than in Parkinson’s disease, so it carries less weight than rigidity or bradykinesia.',
+      'CORRECTION: previously supportive. Rest tremor is one of the three cardinal parkinsonian features named in DLB 2017, and the criteria require documentation of only ONE of bradykinesia, rest tremor or rigidity. It is less prominent in DLB than in Parkinson’s disease, but it satisfies the parkinsonism core feature outright, so it belongs alongside rigidity rather than below it.',
   },
   {
     id: 'mov4',
@@ -500,9 +567,20 @@ export const globalSymptoms = [
     category: 'Language & Communication',
     kind: 'deficit',
     text: 'Cannot recognise familiar faces — not just forgetting names, but not knowing the face',
-    types: { ppa: 'supportive', pca: 'supportive' },
+    types: { pca: 'core', ppa: 'supportive' },
     evidence:
-      'Prosopagnosia arises via right anterior temporal degeneration (semantic variant PPA) and via the visual route in PCA. Distinguishing this from ordinary name-forgetting is the key question to ask.',
+      'CORRECTION: previously supportive for PCA. Apperceptive prosopagnosia is named on Crutch 2017’s core cognitive feature list, so it counts toward the three required posterior deficits. Also arises via right anterior temporal degeneration in semantic variant PPA, where it is supportive. Distinguishing this from ordinary name-forgetting is the key question to ask.',
+  },
+  {
+    id: 'lang6',
+    category: 'Language & Communication',
+    kind: 'deficit',
+    quick: true,
+    scale: 'consequence',
+    text: 'It is the language trouble specifically that stops them managing day to day — not memory, judgement or motivation',
+    types: { ppa: 'core' },
+    evidence:
+      'Gorno-Tempini 2011 root inclusion criterion 2: the language deficit must be the principal cause of impaired daily living activities. This is what separates PPA from a dementia that happens to include word-finding trouble, and it was previously unasked.',
   },
 
   // ------------------------------------------------------------------
@@ -611,6 +689,36 @@ export const globalSymptoms = [
       'Crutch et al. 2017: PCA requires insidious onset with visual symptoms predominating, and relative sparing of memory and insight early on.',
   },
   {
+    id: 'onset7',
+    category: 'Onset & Progression',
+    kind: 'course',
+    quick: true,
+    text: 'They are clearly and definitely worse now than a year ago — the decline has kept going',
+    types: { alzheimers: 'core', bvftd: 'common', ppa: 'common', pca: 'common', lewy: 'common' },
+    evidence:
+      'NIA-AA 2011 lists "a clear-cut history of worsening of cognition by report or observation" as a REQUIREMENT for probable AD, separate from insidious onset. It was previously unrepresented at type level: progression existed only as a per-item trend modifier, so it could never satisfy a criterion. Marked non-specific for the other neurodegenerative types because they all progress — it corroborates rather than discriminates.',
+  },
+  {
+    id: 'onset8',
+    category: 'Onset & Progression',
+    kind: 'context',
+    quick: true,
+    text: 'Symptoms began after about age 80',
+    types: { late: 'core', mixed: 'supportive' },
+    evidence:
+      'LATE consensus (Brain 2019) and Wolk 2025: LATE is a disease of the oldest old, detectable in over a third of brains past 85, while AD prevalence levels off and falls after that age. Split out of the retired mem9 compound. Mirrors onset1 ("before age 65"), which already existed as a standalone item — the after-80 half had no equivalent. Also raises the prior for mixed pathology, which is the commonest reality at this age.',
+  },
+  {
+    id: 'onset9',
+    category: 'Onset & Progression',
+    kind: 'course',
+    quick: true,
+    text: 'Memory, conversation and personality are still much as they were — the trouble is mainly with seeing and handling things',
+    types: { pca: 'core' },
+    evidence:
+      'Crutch et al. 2017 requires relative sparing of anterograde memory, speech and non-visual language, executive function, personality and behaviour. This is the criterion that separates PCA from typical AD, and like LATE’s sparing criterion it was previously unexpressible.',
+  },
+  {
     id: 'onset1',
     category: 'Onset & Progression',
     kind: 'context',
@@ -697,4 +805,14 @@ export const symptomById = Object.fromEntries(globalSymptoms.map((s) => [s.id, s
 //           diagnostic criterion; having treated hypertension is a risk factor.
 //           Collapsing them into one checkbox gave a risk factor the weight of
 //           a diagnostic criterion.
+//
+//  mem9     "Memory is clearly the main problem, it began after about age 80,
+//           AND it has crept along more slowly than expected"
+//           Three independent LATE criteria behind one checkbox. A person aged
+//           82 with memory-predominant but FAST decline could only overclaim
+//           all three or lose all three -- and this was the sole item
+//           separating LATE from Alzheimer's. Replaced by mem10 (memory
+//           predominant, others spared), mem11 (slow course) and onset8 (onset
+//           after 80). Migration expands a checked mem9 into all three, because
+//           checking a conjunction asserts every conjunct.
 // ------------------------------------------------------------------
