@@ -8,7 +8,7 @@ import { globalSymptoms, quickSymptoms, symptomById, categories } from '../src/d
 import { redFlags } from '../src/data/redFlags.js';
 import { dementiaTypes, typeKeys, EVIDENCE_WEIGHTS } from '../src/data/dementiaTypes.js';
 import { ITEM_KINDS, getModifiersForKind, getModifiersFor, resolveImpactKey } from '../src/data/itemKinds.js';
-import { computeScores, rankTypes, assessConfidence } from '../src/scoring.js';
+import { computeScores, rankTypes, assessConfidence, distinguishingAnswers } from '../src/scoring.js';
 import { TYPE_CRITERIA, criteriaItemIds, evaluateCriteria } from '../src/data/criteria.js';
 
 let failures = 0;
@@ -571,6 +571,35 @@ check('early urinary symptoms upgraded to a core vascular criterion',
   const ids = ['mem5', 'hall1', 'sleep1', 'mov2', 'mov1', 'exec4', 'auto5', 'sleep3', 'mem6', 'auto1', 'auto3', 'mov5'];
   const c = assessConfidence(computeScores(checkedFrom(ids), globalSymptoms), checkedFrom(ids), globalSymptoms);
   check('a full textbook DLB profile reaches "clear"', c.level === 'clear', `got ${c.level}`);
+}
+
+// One-page summary: "top distinguishing answers" must rank a single-type core
+// criterion above an item shared across several types, must never include a
+// purely non-specific finding, and must surface counter-evidence.
+{
+  const ids = ['mem1', 'hall1', 'beh2'];
+  const sd = checkedFrom(ids);
+  const order = rankTypes(computeScores(sd, globalSymptoms)).order;
+  const answers = distinguishingAnswers(sd, globalSymptoms, order);
+  const singleCore = answers.find((a) => a.supports.length === 1 && a.supports[0].tier === 'core');
+  const sharedCore = answers.find((a) => a.supports.length > 1 && a.supports[0].tier === 'core');
+  // Both sides must be present, or the ordering check passes vacuously.
+  check('distinguishing answers: fixture has a single-type and a shared core item',
+    Boolean(singleCore && sharedCore));
+  check('distinguishing answers: single-type core outranks shared core',
+    Boolean(singleCore && sharedCore) && answers.indexOf(singleCore) < answers.indexOf(sharedCore));
+  check('distinguishing answers: no purely non-specific item is listed',
+    answers.every((a) => a.supports.length > 0 || a.against.length > 0));
+  check('distinguishing answers: every listed item was actually checked',
+    answers.every((a) => sd[a.id]?.checked));
+  check('distinguishing answers: values are sorted descending',
+    answers.every((a, i) => i === 0 || answers[i - 1].value >= a.value));
+  const withAgainst = globalSymptoms.find((s) => s.against?.length);
+  const ag = distinguishingAnswers(checkedFrom([withAgainst.id]), globalSymptoms, order);
+  check('distinguishing answers: counter-evidence is surfaced',
+    ag[0]?.against.length === withAgainst.against.length, withAgainst.id);
+  check('distinguishing answers: respects the limit',
+    distinguishingAnswers(checkedFrom(globalSymptoms.map((s) => s.id)), globalSymptoms, order).length === 8);
 }
 
 // ---------------------------------------------------------------

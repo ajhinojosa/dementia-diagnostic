@@ -18,7 +18,10 @@ import {
   assessConfidence,
   activeSafetyFlags,
   unexploredCategories,
+  distinguishingAnswers,
 } from './scoring.js';
+import { PatternAnalysis, ProfileChart, PROFILE_CHART_CAPTION, sectionHeading } from './components/AnalysisPanels.jsx';
+import OnePageSummary from './components/OnePageSummary.jsx';
 import { loadSavedData, STORAGE_KEY, SCHEMA_VERSION } from './migrate.js';
 import { buildExport, exportFilename, parseImport, downloadJSON } from './backup.js';
 
@@ -271,6 +274,7 @@ export default function App() {
   // State for view mode
   const [activeTab, setActiveTab] = useState("symptoms"); // symptoms, flags, history, adl, stage, report
   const [showPrintView, setShowPrintView] = useState(false);
+  const [showSummaryView, setShowSummaryView] = useState(false);
   const [showSourcesView, setShowSourcesView] = useState(false);
   const [saveStatus, setSaveStatus] = useState(""); // For save confirmation message
   const [migrationNotice, setMigrationNotice] = useState(false);
@@ -493,6 +497,11 @@ export default function App() {
     [redFlagData, activeRedFlags]
   );
 
+  const topAnswers = useMemo(
+    () => distinguishingAnswers(symptomData, activeSymptoms, sortedTypes),
+    [symptomData, activeSymptoms, sortedTypes]
+  );
+
   const toggleRedFlag = (id, value) =>
     setRedFlagData(prev => ({ ...prev, [id]: prev[id] === value ? undefined : value }));
 
@@ -579,6 +588,32 @@ export default function App() {
       totalAssessed
     };
   }, [adlData, symptomData, leadingType]);
+
+  // ============================================
+  // ONE-PAGE SUMMARY
+  // ============================================
+
+  if (showSummaryView) {
+    return (
+      <OnePageSummary
+        onBack={() => setShowSummaryView(false)}
+        medicalHistory={medicalHistory}
+        mode={mode}
+        checkedCount={checkedCount}
+        scores={scores}
+        sortedTypes={sortedTypes}
+        leadingType={leadingType}
+        confidence={confidence}
+        ranking={ranking}
+        unexplored={unexplored}
+        answers={topAnswers}
+        activeSymptoms={activeSymptoms}
+        symptomData={symptomData}
+        flaggedRedFlags={flaggedRedFlags}
+        safetyFlags={safetyFlags}
+      />
+    );
+  }
 
   // ============================================
   // PRINT VIEW COMPONENT
@@ -1503,6 +1538,19 @@ export default function App() {
           border-radius: 4px;
           transition: width 0.3s ease;
         }
+
+        .summary-btn {
+          font-family: 'DM Sans', sans-serif;
+          font-size: 11px;
+          font-weight: 600;
+          color: #3D7A5A;
+          background: white;
+          border: 1px solid #3D7A5A55;
+          border-radius: 10px;
+          padding: 2px 10px;
+          cursor: pointer;
+        }
+        .summary-btn:hover { background: #EDF5F0; }
         
         .adl-row {
           display: flex;
@@ -1917,151 +1965,22 @@ export default function App() {
               </p>
             </div>
 
-            {/* Pattern analysis.
-                Three things the previous version did not do: state how much to
-                trust the ordering, show the prevalence adjustment rather than
-                applying it silently, and surface evidence that argues AGAINST a
-                type instead of only evidence for it. */}
+            {/* Pattern analysis -- see components/AnalysisPanels.jsx. */}
             {hasAnyChecked && (
               <div className="card" style={{ padding: '18px', marginBottom: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
-                  <h3 style={{
-                    fontFamily: "'DM Sans', sans-serif",
-                    fontSize: '12px',
-                    color: '#6B6660',
-                    margin: 0,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                    fontWeight: '600'
-                  }}>
-                    Pattern Analysis
-                  </h3>
-                  <span style={{
-                    fontFamily: "'DM Sans', sans-serif",
-                    fontSize: '11px',
-                    fontWeight: '600',
-                    padding: '2px 8px',
-                    borderRadius: '10px',
-                    color: ['clear', 'moderate'].includes(confidence.level) ? '#2C5B43' : '#8B6914',
-                    background: ['clear', 'moderate'].includes(confidence.level) ? '#EDF5F0' : '#FFFBEF'
-                  }}>
-                    {confidence.label}
-                  </span>
-                </div>
-
-                <p style={{
-                  fontFamily: "'DM Sans', sans-serif",
-                  fontSize: '12px',
-                  color: '#6B6660',
-                  margin: '0 0 14px 0',
-                  lineHeight: '1.5'
-                }}>
-                  {confidence.reason}
-                </p>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  {sortedTypes.filter(type => scores[type].total > 0).map(type => {
-                    const score = scores[type];
-                    const info = dementiaTypes[type];
-                    const isLeader = leadingType === type;
-                    return (
-                      <div key={type} style={{
-                        padding: isLeader ? '10px 12px' : '0',
-                        borderRadius: '8px',
-                        background: isLeader ? `${info.color}0D` : 'transparent',
-                        border: isLeader ? `1px solid ${info.color}33` : 'none'
-                      }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', gap: '8px', flexWrap: 'wrap' }}>
-                          <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '13px', fontWeight: '600', color: info.color }}>
-                            {info.name}
-                            {isLeader && <span style={{ fontSize: '10px', marginLeft: '6px', color: '#8B8680', fontWeight: '500' }}>closest fit</span>}
-                          </span>
-                          <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '11px', color: '#8B8680' }}>
-                            <span style={{ fontWeight: '600', color: info.color }}>{Math.round(score.profileMatch)}%</span> profile match
-                            {score.maxCore > 0 && <> • {score.core}/{score.maxCore} core criteria</>}
-                          </span>
-                        </div>
-                        <div className="score-bar">
-                          <div className="score-fill" style={{ width: `${score.profileMatch}%`, background: info.color }} />
-                        </div>
-                        {/* The published threshold, stated rather than folded into the
-                            number. "2 of 4 core features" is a rule a clinician can check;
-                            a percentage is not. */}
-                        {score.meetsThreshold && (
-                          <div style={{
-                            fontFamily: "'DM Sans', sans-serif",
-                            fontSize: '11px',
-                            color: info.color,
-                            marginTop: '5px',
-                            fontWeight: '600'
-                          }}>
-                            Meets {score.criteria.thresholdLabel}
-                          </div>
-                        )}
-                        {isLeader && score.criteria?.available?.length > 0 && (
-                          <div style={{
-                            fontFamily: "'DM Sans', sans-serif",
-                            fontSize: '11px',
-                            color: '#8B8680',
-                            marginTop: '5px',
-                            lineHeight: '1.5'
-                          }}>
-                            {score.criteria.available.map((f) => (
-                              <div key={f.id}>
-                                <span style={{ color: f.satisfied ? info.color : '#C8C4BC', fontWeight: '600' }}>
-                                  {f.satisfied ? '✓' : '○'}
-                                </span>{' '}
-                                {f.label}
-                                {f.needed > 1 && ` (${f.have} of ${f.needed} needed)`}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        {score.counterEvidence.length > 0 && (
-                          <div style={{
-                            fontFamily: "'DM Sans', sans-serif",
-                            fontSize: '11px',
-                            color: '#A05252',
-                            marginTop: '5px',
-                            lineHeight: '1.4'
-                          }}>
-                            Counts against this: {score.counterEvidence.map(c => c.text.toLowerCase()).join('; ')}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {ranking.priorChangedOrder && (
-                  <p style={{
-                    fontFamily: "'DM Sans', sans-serif",
-                    fontSize: '11px',
-                    color: '#6B6660',
-                    margin: '14px 0 0 0',
-                    paddingTop: '10px',
-                    borderTop: '1px dashed #E8E5E0',
-                    lineHeight: '1.5'
-                  }}>
-                    <strong>Ordering note:</strong> on symptom fit alone,{' '}
-                    <strong>{dementiaTypes[ranking.topByFit].name}</strong> scored highest. It has been placed below{' '}
-                    <strong>{dementiaTypes[ranking.withEvidence[0]].name}</strong> because the two are close enough to be
-                    hard to separate on symptoms, and the latter is substantially more common. Both are worth raising.
-                  </p>
-                )}
-
-                {unexplored.length > 0 && (
-                  <p style={{
-                    fontFamily: "'DM Sans', sans-serif",
-                    fontSize: '11px',
-                    color: '#8B6914',
-                    margin: '10px 0 0 0',
-                    lineHeight: '1.5'
-                  }}>
-                    Nothing recorded yet under: {unexplored.join(', ')}. An unasked question is not a "no" — these
-                    categories are currently contributing nothing either way.
-                  </p>
-                )}
+                <PatternAnalysis
+                  scores={scores}
+                  sortedTypes={sortedTypes}
+                  leadingType={leadingType}
+                  confidence={confidence}
+                  ranking={ranking}
+                  unexplored={unexplored}
+                  headerExtra={
+                    <button className="summary-btn" onClick={() => setShowSummaryView(true)}>
+                      Print one-page summary
+                    </button>
+                  }
+                />
               </div>
             )}
 
@@ -2102,162 +2021,11 @@ export default function App() {
             {/* Spider Chart */}
             {hasAnyChecked && (
               <div className="card" style={{ padding: '18px', marginBottom: '16px' }}>
-                <h3 style={{
-                  fontFamily: "'DM Sans', sans-serif",
-                  fontSize: '12px',
-                  color: '#6B6660',
-                  margin: '0 0 14px 0',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px',
-                  fontWeight: '600'
-                }}>
+                <h3 style={{ ...sectionHeading, marginBottom: '14px' }}>
                   Subtype Profile Chart
                 </h3>
                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                  <svg width="320" height="280" viewBox="0 0 320 280">
-                    {/* Background and grid */}
-                    {(() => {
-                      const cx = 160, cy = 130, maxRadius = 100;
-                      const types = Object.keys(dementiaTypes);
-                      const angleStep = (2 * Math.PI) / types.length;
-                      const levels = [0.25, 0.5, 0.75, 1];
-                      
-                      // Calculate points for each type
-                      const getPoint = (index, value) => {
-                        const angle = (index * angleStep) - Math.PI / 2;
-                        const radius = value * maxRadius;
-                        return {
-                          x: cx + radius * Math.cos(angle),
-                          y: cy + radius * Math.sin(angle)
-                        };
-                      };
-                      
-                      // Plot the profile match -- the weighted share of that
-                      // type's defining features that are present.
-                      const getScoreValue = (type) => {
-                        const s = scores[type];
-                        if (!s) return 0;
-                        return s.profileMatch / 100;
-                      };
-                      
-                      return (
-                        <g>
-                          {/* Grid circles */}
-                          {levels.map((level, i) => (
-                            <circle
-                              key={`grid-${i}`}
-                              cx={cx}
-                              cy={cy}
-                              r={maxRadius * level}
-                              fill="none"
-                              stroke="#E8E5E0"
-                              strokeWidth="1"
-                              strokeDasharray={i < levels.length - 1 ? "4,4" : "none"}
-                            />
-                          ))}
-                          
-                          {/* Axis lines */}
-                          {types.map((type, i) => {
-                            const point = getPoint(i, 1);
-                            return (
-                              <line
-                                key={`axis-${type}`}
-                                x1={cx}
-                                y1={cy}
-                                x2={point.x}
-                                y2={point.y}
-                                stroke="#E8E5E0"
-                                strokeWidth="1"
-                              />
-                            );
-                          })}
-                          
-                          {/* Data polygon */}
-                          <polygon
-                            points={types.map((type, i) => {
-                              const value = Math.max(getScoreValue(type), 0.05);
-                              const point = getPoint(i, value);
-                              return `${point.x},${point.y}`;
-                            }).join(' ')}
-                            fill="rgba(61, 122, 90, 0.15)"
-                            stroke="#3D7A5A"
-                            strokeWidth="2"
-                          />
-                          
-                          {/* Data points */}
-                          {types.map((type, i) => {
-                            const value = Math.max(getScoreValue(type), 0.05);
-                            const point = getPoint(i, value);
-                            const hasScore = scores[type]?.total > 0;
-                            return (
-                              <circle
-                                key={`point-${type}`}
-                                cx={point.x}
-                                cy={point.y}
-                                r={hasScore ? 6 : 4}
-                                fill={hasScore ? dementiaTypes[type].color : '#C8C4BC'}
-                                stroke="white"
-                                strokeWidth="2"
-                              />
-                            );
-                          })}
-                          
-                          {/* Labels */}
-                          {types.map((type, i) => {
-                            const labelRadius = maxRadius + 25;
-                            const angle = (i * angleStep) - Math.PI / 2;
-                            const x = cx + labelRadius * Math.cos(angle);
-                            const y = cy + labelRadius * Math.sin(angle);
-                            const info = dementiaTypes[type];
-                            const hasScore = scores[type]?.total > 0;
-                            
-                            // Adjust text anchor based on position
-                            let textAnchor = 'middle';
-                            if (Math.cos(angle) < -0.1) textAnchor = 'end';
-                            else if (Math.cos(angle) > 0.1) textAnchor = 'start';
-                            
-                            return (
-                              <g key={`label-${type}`}>
-                                <text
-                                  x={x}
-                                  y={y}
-                                  textAnchor={textAnchor}
-                                  style={{
-                                    fontFamily: "'DM Sans', sans-serif",
-                                    fontSize: '11px',
-                                    fontWeight: hasScore ? '600' : '400',
-                                    fill: hasScore ? info.color : '#8B8680'
-                                  }}
-                                >
-                                  {info.shortName}
-                                </text>
-                                {hasScore && (
-                                  <text
-                                    x={x}
-                                    y={y + 12}
-                                    textAnchor={textAnchor}
-                                    style={{
-                                      fontFamily: "'DM Sans', sans-serif",
-                                      fontSize: '9px',
-                                      fill: '#8B8680'
-                                    }}
-                                  >
-                                    {Math.round(scores[type].profileMatch)}%
-                                  </text>
-                                )}
-                              </g>
-                            );
-                          })}
-                          
-                          {/* Center percentage labels */}
-                          <text x={cx + 8} y={cy - maxRadius * 0.25 + 3} style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '8px', fill: '#A8A4A0' }}>25%</text>
-                          <text x={cx + 8} y={cy - maxRadius * 0.5 + 3} style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '8px', fill: '#A8A4A0' }}>50%</text>
-                          <text x={cx + 8} y={cy - maxRadius * 0.75 + 3} style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '8px', fill: '#A8A4A0' }}>75%</text>
-                          <text x={cx + 8} y={cy - maxRadius + 3} style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '8px', fill: '#A8A4A0' }}>100%</text>
-                        </g>
-                      );
-                    })()}
-                  </svg>
+                  <ProfileChart scores={scores} />
                 </div>
                 <p style={{
                   fontFamily: "'DM Sans', sans-serif",
@@ -2266,7 +2034,7 @@ export default function App() {
                   textAlign: 'center',
                   margin: '8px 0 0 0'
                 }}>
-                  Each axis is that subtype's profile match — the weighted share of its defining features that are present. Non-specific findings are excluded from the denominator.
+                  {PROFILE_CHART_CAPTION}
                 </p>
               </div>
             )}
@@ -3522,6 +3290,30 @@ export default function App() {
             >
               📄 Generate Printable Report
             </button>
+
+            <div style={{ marginTop: '12px' }}>
+              <button
+                onClick={() => setShowSummaryView(true)}
+                disabled={checkedSymptoms.length === 0}
+                style={{
+                  padding: '12px 32px',
+                  background: 'white',
+                  color: '#3D7A5A',
+                  border: '2px solid #3D7A5A',
+                  borderRadius: '10px',
+                  fontSize: '15px',
+                  fontWeight: '600',
+                  fontFamily: "'DM Sans', sans-serif",
+                  cursor: checkedSymptoms.length === 0 ? 'not-allowed' : 'pointer',
+                  opacity: checkedSymptoms.length === 0 ? 0.5 : 1
+                }}
+              >
+                🎨 One-Page Visual Summary
+              </button>
+              <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '12px', color: '#8B8680', margin: '6px 0 0 0' }}>
+                Pattern analysis, profile chart and the most distinguishing answers on a single colour page.
+              </p>
+            </div>
 
             <p style={{
               fontFamily: "'DM Sans', sans-serif",

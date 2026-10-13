@@ -309,3 +309,46 @@ export function unexploredCategories(symptomData, activeSymptoms) {
     .filter(([, v]) => v.checked === 0)
     .map(([name]) => name);
 }
+
+/**
+ * The recorded answers that do the most to tell the types apart, for the
+ * one-page summary. A checked item mapped to one type at core tier separates
+ * that type from every other; the same item mapped core to three types barely
+ * separates anything. So each answer is valued by its strongest tier times the
+ * share of its total weight that tier holds -- 3 for a single-type core item,
+ * 1 for a core item shared three ways -- plus credit for each type it argues
+ * against, since ruling a type out is distinguishing too.
+ *
+ * Non-specific ('common') tiers are ignored: they corroborate, they do not
+ * discriminate. Ties go to answers that bear on the higher-ranked types, so the
+ * list explains the top of the ranking rather than its tail.
+ */
+export function distinguishingAnswers(symptomData, activeSymptoms, order, limit = 8) {
+  const rankOf = (t) => {
+    const i = order.indexOf(t);
+    return i === -1 ? order.length : i;
+  };
+
+  return activeSymptoms
+    .filter((s) => isChecked(symptomData, s.id))
+    .map((s) => {
+      const supports = Object.entries(s.types ?? {})
+        .filter(([, tier]) => tier !== 'common')
+        .map(([type, tier]) => ({ type, tier, weight: EVIDENCE_WEIGHTS[tier] ?? 0 }))
+        .sort((a, b) => b.weight - a.weight || rankOf(a.type) - rankOf(b.type));
+      const against = [...(s.against ?? [])].sort((a, b) => rankOf(a) - rankOf(b));
+
+      const sum = supports.reduce((acc, x) => acc + x.weight, 0);
+      const best = supports[0]?.weight ?? 0;
+      const focus = sum > 0 ? best / sum : 0;
+      const value = best * focus + against.length;
+
+      const touched = [...supports.map((x) => x.type), ...against];
+      const topRank = touched.length ? Math.min(...touched.map(rankOf)) : order.length;
+
+      return { id: s.id, text: s.text, supports, against, value, topRank };
+    })
+    .filter((a) => a.value > 0)
+    .sort((a, b) => b.value - a.value || a.topRank - b.topRank)
+    .slice(0, limit);
+}

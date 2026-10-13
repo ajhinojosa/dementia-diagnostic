@@ -12,6 +12,8 @@ import { readFileSync } from 'node:fs';
 
 const files = {
   'src/App.jsx': readFileSync('src/App.jsx', 'utf8'),
+  'src/components/AnalysisPanels.jsx': readFileSync('src/components/AnalysisPanels.jsx', 'utf8'),
+  'src/components/OnePageSummary.jsx': readFileSync('src/components/OnePageSummary.jsx', 'utf8'),
   'src/data/symptoms.js': readFileSync('src/data/symptoms.js', 'utf8'),
   'src/data/dementiaTypes.js': readFileSync('src/data/dementiaTypes.js', 'utf8'),
   'src/data/redFlags.js': readFileSync('src/data/redFlags.js', 'utf8'),
