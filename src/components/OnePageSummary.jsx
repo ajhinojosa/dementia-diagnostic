@@ -93,9 +93,9 @@ export default function OnePageSummary({
     <div className="summary-root">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600&family=DM+Sans:wght@400;500;600;700&display=swap');
-        /* Letter, full-bleed: the sheet supplies its own 0.4in margin so the
-           cream page prints edge to edge and browser headers/footers (which
-           live in the @page margin) do not appear. */
+        /* Letter. The sheet supplies its own 0.4in white margin rather than
+           @page, because browser headers/footers (date, URL) print inside the
+           @page margin -- with it at zero they have nowhere to go. */
         @page { size: letter; margin: 0; }
         .summary-root {
           min-height: 100vh;
@@ -109,12 +109,12 @@ export default function OnePageSummary({
           margin: 0 auto;
           padding: 0.4in;
           box-sizing: border-box;
-          background: #FAF7F2;
+          background: white;
           box-shadow: 0 6px 24px rgba(0,0,0,0.12);
           color: #2D2A26;
         }
         .summary-card {
-          background: white;
+          background: #FCFBF9;
           border-radius: 10px;
           border: 1px solid #ECE8E1;
           padding: 12px 14px;
